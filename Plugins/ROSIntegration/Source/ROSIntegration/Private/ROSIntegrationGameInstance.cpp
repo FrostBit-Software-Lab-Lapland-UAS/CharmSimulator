@@ -40,211 +40,123 @@ static void MarkAllROSObjectsAsDisconnected()
 void UROSIntegrationGameInstance::Init()
 {
 	Super::Init();
-	/*if (!bROSstarted)
-	{
-		bROSstarted = true;
-		system("start powershell.exe -NoExit \"wsl -- cd ~/catkin_ws `&`& source devel/setup.bash `&`& roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True\"");
-	}*/
 	
 	UE_LOG(LogROS, Display, TEXT("Start ros integration"));
 
-	if (bConnectToROS)
+	// Read the 'startROSAPI' launch parameter
+	bool bStartROSAPI = GetStartROSFromCommandLine();
+
+	// If the launch parameter is true, try to launch ROS
+	if (bStartROSAPI || overrideROSLaunch)
 	{
-		bool resLock = initMutex_.TryLock(); 
-		if (!resLock)
+		if (bConnectToROS)
 		{
-			UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - already connection to ROS bridge!"));
-			return; // EXIT POINT!
-		}
-
-		FLocker locker(&initMutex_);
-
-		UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - connecting to ROS bridge..."));
-
-		FROSTime::SetUseSimTime(false);
-
-		if (ROSIntegrationCore)
-		{
-			UROSIntegrationCore* oldRosCore = ROSIntegrationCore;
-			ROSIntegrationCore = nullptr;
-			oldRosCore->ConditionalBeginDestroy();
-		}
-
-		// Find AROSBridgeParamOverride actor, if it exists, to override ROS connection parameters
-		TArray<AActor*> TempArray;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROSBridgeParamOverride::StaticClass(), TempArray);
-		if (TempArray.Num() > 0)
-		{
-			AROSBridgeParamOverride* OverrideParams = Cast<AROSBridgeParamOverride>(TempArray[0]);
-			if (OverrideParams)
+			bool resLock = initMutex_.TryLock();
+			if (!resLock)
 			{
-				UE_LOG(LogROS, Display, TEXT("ROSIntegrationGameInstance::Init() - Found AROSBridgeParamOverride to override ROS connection parameters."));
-				ROSBridgeServerHost = OverrideParams->ROSBridgeServerHost;
-				ROSBridgeServerPort = OverrideParams->ROSBridgeServerPort;
-				bConnectToROS = OverrideParams->bConnectToROS;
-				bSimulateTime = OverrideParams->bSimulateTime;
-				bUseFixedUpdateInterval = OverrideParams->bUseFixedUpdateInterval;
-				FixedUpdateInterval = OverrideParams->FixedUpdateInterval;
-				bCheckHealth = OverrideParams->bCheckHealth;
+				UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - already connection to ROS bridge!"));
+				return; // EXIT POINT!
 			}
-		}
 
-		ROSIntegrationCore = NewObject<UROSIntegrationCore>(UROSIntegrationCore::StaticClass()); // ORIGINAL 
-		bIsConnected = ROSIntegrationCore->Init(ROSBridgeServerHost, ROSBridgeServerPort);
+			FLocker locker(&initMutex_);
 
-		if (!bTimerSet)
-		{
-			bTimerSet = true; 
-			GetTimerManager().SetTimer(TimerHandle_CheckHealth, this, &UROSIntegrationGameInstance::CheckROSBridgeHealth, 1.0f, true, 5.0f);
-		}
+			UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - connecting to ROS bridge..."));
 
-		if (bIsConnected)
-		{
-			UE_LOG(LogROS, Display, TEXT("Start spawn stuff 0"));
-			UWorld* CurrentWorld = GetWorld();
-			if (CurrentWorld)
+			FROSTime::SetUseSimTime(false);
+
+			if (ROSIntegrationCore)
 			{
-				ROSIntegrationCore->SetWorld(CurrentWorld);
-				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 1"));
-				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 2"));
-				ROSIntegrationCore->InitSpawnManager();
-
-				UE_LOG(LogTemp, Warning, TEXT("The boolean value is %s"), (ROSIntegrationCore->_Implementation ? TEXT("true") : TEXT("false")));
-				
+				UROSIntegrationCore* oldRosCore = ROSIntegrationCore;
+				ROSIntegrationCore = nullptr;
+				oldRosCore->ConditionalBeginDestroy();
 			}
-			else
+
+			// Find AROSBridgeParamOverride actor, if it exists, to override ROS connection parameters
+			TArray<AActor*> TempArray;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROSBridgeParamOverride::StaticClass(), TempArray);
+			if (TempArray.Num() > 0)
 			{
-				UE_LOG(LogROS, Display, TEXT("World not available in UROSIntegrationGameInstance::Init()!"));
+				AROSBridgeParamOverride* OverrideParams = Cast<AROSBridgeParamOverride>(TempArray[0]);
+				if (OverrideParams)
+				{
+					UE_LOG(LogROS, Display, TEXT("ROSIntegrationGameInstance::Init() - Found AROSBridgeParamOverride to override ROS connection parameters."));
+					ROSBridgeServerHost = OverrideParams->ROSBridgeServerHost;
+					ROSBridgeServerPort = OverrideParams->ROSBridgeServerPort;
+					bConnectToROS = OverrideParams->bConnectToROS;
+					bSimulateTime = OverrideParams->bSimulateTime;
+					bUseFixedUpdateInterval = OverrideParams->bUseFixedUpdateInterval;
+					FixedUpdateInterval = OverrideParams->FixedUpdateInterval;
+					bCheckHealth = OverrideParams->bCheckHealth;
+				}
 			}
-		}
-		else if (!bReconnect)
-		{
-			bROSstarted = true;
-			system("start powershell.exe -NoExit \"wsl -- cd ~/catkin_ws `&`& source devel/setup.bash `&`& roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True\"");
-			UE_LOG(LogROS, Error, TEXT("Failed to connect to server %s:%u. Please make sure that your rosbridge is running."), *ROSBridgeServerHost, ROSBridgeServerPort);
-		}
 
-		if (bSimulateTime && bIsConnected)
-		{
-			UE_LOG(LogROS, Display, TEXT("Start fixed times"));
-			FApp::SetFixedDeltaTime(FixedUpdateInterval);
-			FApp::SetUseFixedTimeStep(bUseFixedUpdateInterval);
+			ROSIntegrationCore = NewObject<UROSIntegrationCore>(UROSIntegrationCore::StaticClass()); // ORIGINAL 
+			bIsConnected = ROSIntegrationCore->Init(ROSBridgeServerHost, ROSBridgeServerPort);
 
-			// tell ROSIntegration to use simulated time
-			FROSTime now = FROSTime::Now();
-			FROSTime::SetUseSimTime(true);
-			FROSTime::SetSimTime(now);
+			if (!bTimerSet)
+			{
+				bTimerSet = true;
+				GetTimerManager().SetTimer(TimerHandle_CheckHealth, this, &UROSIntegrationGameInstance::CheckROSBridgeHealth, 1.0f, true, 5.0f);
+			}
 
-			FWorldDelegates::OnWorldTickStart.AddUObject(this, &UROSIntegrationGameInstance::OnWorldTickStart);
+			if (bIsConnected)
+			{
+				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 0"));
+				UWorld* CurrentWorld = GetWorld();
+				if (CurrentWorld)
+				{
+					ROSIntegrationCore->SetWorld(CurrentWorld);
+					UE_LOG(LogROS, Display, TEXT("Start spawn stuff 1"));
+					UE_LOG(LogROS, Display, TEXT("Start spawn stuff 2"));
+					ROSIntegrationCore->InitSpawnManager();
 
-			ClockTopic = NewObject<UTopic>(UTopic::StaticClass()); // ORIGINAL
+					UE_LOG(LogTemp, Warning, TEXT("The boolean value is %s"), (ROSIntegrationCore->_Implementation ? TEXT("true") : TEXT("false")));
 
-			ClockTopic->Init(ROSIntegrationCore, FString(TEXT("/clock")), FString(TEXT("rosgraph_msgs/Clock")), 3);
+				}
+				else
+				{
+					UE_LOG(LogROS, Display, TEXT("World not available in UROSIntegrationGameInstance::Init()!"));
+				}
+			}
+			else if (!bReconnect)
+			{
+				bROSstarted = true;
+				system("start powershell.exe -NoExit \"wsl -- cd ~/catkin_ws `&`& source devel/setup.bash `&`& roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True\"");
+				UE_LOG(LogROS, Error, TEXT("Failed to connect to server %s:%u. Please make sure that your rosbridge is running."), *ROSBridgeServerHost, ROSBridgeServerPort);
+			}
 
-			ClockTopic->Advertise();
+			if (bSimulateTime && bIsConnected)
+			{
+				UE_LOG(LogROS, Display, TEXT("Start fixed times"));
+				FApp::SetFixedDeltaTime(FixedUpdateInterval);
+				FApp::SetUseFixedTimeStep(bUseFixedUpdateInterval);
+
+				// tell ROSIntegration to use simulated time
+				FROSTime now = FROSTime::Now();
+				FROSTime::SetUseSimTime(true);
+				FROSTime::SetSimTime(now);
+
+				FWorldDelegates::OnWorldTickStart.AddUObject(this, &UROSIntegrationGameInstance::OnWorldTickStart);
+
+				ClockTopic = NewObject<UTopic>(UTopic::StaticClass()); // ORIGINAL
+
+				ClockTopic->Init(ROSIntegrationCore, FString(TEXT("/clock")), FString(TEXT("rosgraph_msgs/Clock")), 3);
+
+				ClockTopic->Advertise();
+			}
 		}
 	}
 }
 
-void UROSIntegrationGameInstance::TryToConnectToROS()
+bool UROSIntegrationGameInstance::GetStartROSFromCommandLine()
 {
-	system("start powershell.exe -NoExit \"wsl -- cd ~/catkin_ws `&`& source devel/setup.bash `&`& roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True\"");
-
-	if (bConnectToROS && !bIsConnected)
+	FString CommandLine = FCommandLine::Get();
+	FString StartROSArg;
+	if (FParse::Value(*CommandLine, TEXT("startROS="), StartROSArg))
 	{
-		UE_LOG(LogROS, Display, TEXT("try to connect ross!"));
-		bool resLock = initMutex_.TryLock();
-		if (!resLock)
-		{
-			UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - already connection to ROS bridge!"));
-			return; // EXIT POINT!
-		}
-
-		FLocker locker(&initMutex_);
-
-		UE_LOG(LogROS, Display, TEXT("UROSIntegrationGameInstance::Init() - connecting to ROS bridge..."));
-
-		FROSTime::SetUseSimTime(false);
-
-		if (ROSIntegrationCore)
-		{
-			UROSIntegrationCore* oldRosCore = ROSIntegrationCore;
-			ROSIntegrationCore = nullptr;
-			oldRosCore->ConditionalBeginDestroy();
-		}
-
-		// Find AROSBridgeParamOverride actor, if it exists, to override ROS connection parameters
-		TArray<AActor*> TempArray;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROSBridgeParamOverride::StaticClass(), TempArray);
-		if (TempArray.Num() > 0)
-		{
-			AROSBridgeParamOverride* OverrideParams = Cast<AROSBridgeParamOverride>(TempArray[0]);
-			if (OverrideParams)
-			{
-				UE_LOG(LogROS, Display, TEXT("ROSIntegrationGameInstance::Init() - Found AROSBridgeParamOverride to override ROS connection parameters."));
-				ROSBridgeServerHost = OverrideParams->ROSBridgeServerHost;
-				ROSBridgeServerPort = OverrideParams->ROSBridgeServerPort;
-				bConnectToROS = OverrideParams->bConnectToROS;
-				bSimulateTime = OverrideParams->bSimulateTime;
-				bUseFixedUpdateInterval = OverrideParams->bUseFixedUpdateInterval;
-				FixedUpdateInterval = OverrideParams->FixedUpdateInterval;
-				bCheckHealth = OverrideParams->bCheckHealth;
-			}
-		}
-
-		ROSIntegrationCore = NewObject<UROSIntegrationCore>(UROSIntegrationCore::StaticClass()); // ORIGINAL 
-		bIsConnected = ROSIntegrationCore->Init(ROSBridgeServerHost, ROSBridgeServerPort);
-
-		if (!bTimerSet)
-		{
-			bTimerSet = true;
-			GetTimerManager().SetTimer(TimerHandle_CheckHealth, this, &UROSIntegrationGameInstance::CheckROSBridgeHealth, 1.0f, true, 5.0f);
-		}
-
-		if (bIsConnected)
-		{
-			UE_LOG(LogROS, Display, TEXT("Start spawn stuff 0"));
-			UWorld* CurrentWorld = GetWorld();
-			if (CurrentWorld)
-			{
-				ROSIntegrationCore->SetWorld(CurrentWorld);
-				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 1"));
-				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 2"));
-				ROSIntegrationCore->InitSpawnManager();
-
-				UE_LOG(LogTemp, Warning, TEXT("The boolean value is %s"), (ROSIntegrationCore->_Implementation ? TEXT("true") : TEXT("false")));
-
-			}
-			else
-			{
-				UE_LOG(LogROS, Display, TEXT("World not available in UROSIntegrationGameInstance::Init()!"));
-			}
-		}
-		else if (!bReconnect)
-		{
-			UE_LOG(LogROS, Error, TEXT("Failed to connect to server %s:%u. Please make sure that your rosbridge is running."), *ROSBridgeServerHost, ROSBridgeServerPort);
-		}
-
-		if (bSimulateTime)
-		{
-			UE_LOG(LogROS, Display, TEXT("Start fixed times"));
-			FApp::SetFixedDeltaTime(FixedUpdateInterval);
-			FApp::SetUseFixedTimeStep(bUseFixedUpdateInterval);
-
-			// tell ROSIntegration to use simulated time
-			FROSTime now = FROSTime::Now();
-			FROSTime::SetUseSimTime(true);
-			FROSTime::SetSimTime(now);
-
-			FWorldDelegates::OnWorldTickStart.AddUObject(this, &UROSIntegrationGameInstance::OnWorldTickStart);
-
-			ClockTopic = NewObject<UTopic>(UTopic::StaticClass()); // ORIGINAL
-
-			ClockTopic->Init(ROSIntegrationCore, FString(TEXT("/clock")), FString(TEXT("rosgraph_msgs/Clock")), 3);
-
-			ClockTopic->Advertise();
-		}
+		return StartROSArg == "true";
 	}
+	return false;
 }
 
 void UROSIntegrationGameInstance::CheckROSBridgeHealth()

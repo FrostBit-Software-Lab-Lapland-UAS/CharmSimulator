@@ -22,9 +22,6 @@ public:
 	UPROPERTY()
 	UROSIntegrationCore* ROSIntegrationCore = nullptr;
 
-	UFUNCTION(BlueprintCallable, Category = "ROS")
-	void TryToConnectToROS();
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ROS")
 	FString ROSBridgeServerHost = "127.0.0.1";
 
@@ -58,10 +55,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CHARM")
 	bool isSimulating = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CHARM")
+	bool overrideROSLaunch = false;
+
 	bool bROSstarted = false;
 
 protected:
 	void CheckROSBridgeHealth();
+	bool GetStartROSFromCommandLine();
 
 #if ENGINE_MINOR_VERSION > 23 || ENGINE_MAJOR_VERSION >4
 	virtual void OnWorldTickStart(UWorld * World, ELevelTick TickType, float DeltaTime);
