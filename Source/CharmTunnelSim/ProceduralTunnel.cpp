@@ -958,6 +958,7 @@ FVector AProceduralTunnel::GetRoofVertice()
 }
 
 // GET VERTICE LOCATION IN LEFT WALL
+
 FVector AProceduralTunnel::GetLeftVertice(bool isFirstLoopARound, bool isIntersectionAdded)
 {
 	bool isEndOrStar = false;
