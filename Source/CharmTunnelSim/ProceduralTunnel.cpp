@@ -32,14 +32,14 @@ AProceduralTunnel::AProceduralTunnel()
 	FVector NewLocation(300.f, 0.f, 0.f); // Replace this with the desired location
 	SplineComponent->SetLocationAtSplinePoint(PointIndex, NewLocation, ESplineCoordinateSpace::Local);
 
-	// Set the tangent for the second spline point (optional)
+	// Set the tangent for the second spline point 
 	FVector NewTangent(100.f, 0.f, 0.f); // Replace this with the desired tangent
 	SplineComponent->SetTangentAtSplinePoint(PointIndex, NewTangent, ESplineCoordinateSpace::Local);
 
-	// Set the spline point type (optional)
-	SplineComponent->SetSplinePointType(PointIndex, ESplinePointType::Curve);
+	// Set the spline point type 
+	SplineComponent->SetSplinePointType(PointIndex, ESplinePointType::CurveClamped);
 
-	// Update the SplinePointIndicator's transform to match the second spline point (optional)
+	// Update the SplinePointIndicator's transform to match the second spline point
 	if (SplinePointIndicator)
 	{
 		FTransform NewTransform = SplineComponent->GetTransformAtSplinePoint(PointIndex, ESplineCoordinateSpace::Local);
@@ -852,44 +852,59 @@ FVector AProceduralTunnel::GetRightVertice(bool isFirstLoopARound, bool isInters
 	float extraMovementToEnd = 0.0f;
 
 	// Check if we need to rotate the starting position to align with the intersection.
-	if ((tunnelType != TunnelType::DefaultTunnel && pointCapLoopCurrentIndex <= 2 && ((SplineComponent->GetNumberOfSplinePoints() - 1 - meshLoopCurrentIndex == 1) || TunnelMeshes.Num() == 0)))
+	if ((tunnelType != TunnelType::DefaultTunnel && pointCapLoopCurrentIndex <= 4 && ((SplineComponent->GetNumberOfSplinePoints() - 1 - meshLoopCurrentIndex == 1) || TunnelMeshes.Num() == 0)))
 	{
 		isEndOrStar = true;
 		float rotateAmount = 0.0f;
-		if (pointCapLoopCurrentIndex == 0)
-		{
-			rotateAmount = -45.0f;
-			extraMovementToEnd = 70.0f;
-			wallStartVertice = firstRightVertices[0];
+		float alpha = pointCapLoopCurrentIndex / 4.0f;
+		rotateAmount = FMath::Lerp(-45.0f, 0.0f, alpha);
+		switch (pointCapLoopCurrentIndex) {
+		case 0:
+			extraMovementToEnd = 100.0f;
+			break;
+		case 1:
+			extraMovementToEnd = 50.0f;
+			break;
+		case 2:
+			extraMovementToEnd = 30.0f;
+			break;
+		case 3:
+			extraMovementToEnd = 10.0f;
+			break;
+		case 4:
+			extraMovementToEnd = 0.0f;
+			break;
 		}
-		else if (pointCapLoopCurrentIndex == 1)
-		{
-			rotateAmount = -30.0f;
-			extraMovementToEnd = 20.0f;
-		}
-
-		// Rotate the right vector and update it.
 		FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
 		rVector = rotator.RotateVector(rightVector);
 	}
 	
 	// Check if we need to rotate the end right wall vertices to align with the continuation tunnel of the intersection.
-	if (meshLoopLastIndex == meshLoopCurrentIndex && pointCapLoopCurrentIndex <= pointCapLoopLastIndex && pointCapLoopCurrentIndex >= pointCapLoopLastIndex - 1 && isIntersectionAdded && (intersectionType == IntersectionType::Right || intersectionType == IntersectionType::All || intersectionType == IntersectionType::RightLeft))
+	if (meshLoopLastIndex == meshLoopCurrentIndex && pointCapLoopCurrentIndex <= pointCapLoopLastIndex && pointCapLoopCurrentIndex >= pointCapLoopLastIndex - 4 && isIntersectionAdded && (intersectionType == IntersectionType::Right || intersectionType == IntersectionType::All || intersectionType == IntersectionType::RightLeft))
 	{
 		isEndOrStar = true;
 		float rotateAmount = 0.0f;
-		if (pointCapLoopCurrentIndex == pointCapLoopLastIndex)
-		{
-			rotateAmount = 45.0f;
-			extraMovementToEnd = 50.0f;
-		}
-		else if (pointCapLoopCurrentIndex == pointCapLoopLastIndex - 1)
-		{
-			rotateAmount = 25.0f;
-			extraMovementToEnd = 20.0f;
-		}
+		int index = pointCapLoopCurrentIndex - pointCapLoopLastIndex + 4; // 0-4
+		float alpha = index / 4.0f;
+		rotateAmount = FMath::Lerp(0.0f, 45.0f, alpha);
 
-		// Rotate the right vector and update it.
+		switch (index) {
+		case 0:
+			extraMovementToEnd = 0.0f;
+			break;
+		case 1:
+			extraMovementToEnd = 10.0f;
+			break;
+		case 2:
+			extraMovementToEnd = 30.0f;
+			break;
+		case 3:
+			extraMovementToEnd = 50.0f;
+			break;
+		case 4:
+			extraMovementToEnd = 100.0f;
+			break;
+		}
 		FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
 		rVector = rotator.RotateVector(rightVector);
 	}
@@ -986,24 +1001,34 @@ FVector AProceduralTunnel::GetLeftVertice(bool isFirstLoopARound, bool isInterse
 	}
 
 	// Rotate start of wall vertices to align with parent of intersection.
-	if ((tunnelType != TunnelType::DefaultTunnel && pointCapLoopCurrentIndex <= 2 && ((SplineComponent->GetNumberOfSplinePoints() - 1 - meshLoopCurrentIndex == 1) || TunnelMeshes.Num() == 0)))
+	if ((tunnelType != TunnelType::DefaultTunnel && pointCapLoopCurrentIndex <= 4 && ((SplineComponent->GetNumberOfSplinePoints() - 1 - meshLoopCurrentIndex == 1) || TunnelMeshes.Num() == 0)))
 	{
 		if ((tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel)
 		{
 			isEndOrStar = true;
 			wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(pointsInHeight)*wallVerticeSize));
 
-			// Determine the amount to rotate the rVector.
+
 			float rotateAmount = 0.0f;
-			if (pointCapLoopCurrentIndex == 0)
-			{
-				rotateAmount = 45.0f;
-				extraMovementToEnd = 70.0f;
-			}
-			else if (pointCapLoopCurrentIndex == 1)
-			{
-				rotateAmount = 30.0f;
-				extraMovementToEnd = 20.0f;
+			float alpha = pointCapLoopCurrentIndex / 4.0f;
+			rotateAmount = FMath::Lerp(45.0f, 0.0f, alpha);
+
+			switch (pointCapLoopCurrentIndex) {
+			case 0:
+				extraMovementToEnd = 100.0f;
+				break;
+			case 1:
+				extraMovementToEnd = 50.0f;
+				break;
+			case 2:
+				extraMovementToEnd = 30.0f;
+				break;
+			case 3:
+				extraMovementToEnd = 10.0f;
+				break;
+			case 4:
+				extraMovementToEnd = 0.0f;
+				break;
 			}
 
 			// Rotate the rVector and update it.
@@ -1013,20 +1038,32 @@ FVector AProceduralTunnel::GetLeftVertice(bool isFirstLoopARound, bool isInterse
 	}
 
 	// Rotate the end right wall vertices to round up with continuation tunnel of intersection, if applicable.
-	if (meshLoopLastIndex == meshLoopCurrentIndex && pointCapLoopCurrentIndex <= pointCapLoopLastIndex && pointCapLoopCurrentIndex >= pointCapLoopLastIndex - 1 && isIntersectionAdded &&
+	if (meshLoopLastIndex == meshLoopCurrentIndex && pointCapLoopCurrentIndex <= pointCapLoopLastIndex && pointCapLoopCurrentIndex >= pointCapLoopLastIndex - 4 && isIntersectionAdded &&
 		(intersectionType == IntersectionType::Left || intersectionType == IntersectionType::All || intersectionType == IntersectionType::RightLeft))
 	{
 		isEndOrStar = true;
+
 		float rotateAmount = 0.0f;
-		if (pointCapLoopCurrentIndex == pointCapLoopLastIndex)
-		{
-			rotateAmount = -45.0f;
+		int index = pointCapLoopCurrentIndex - pointCapLoopLastIndex + 4; // 0-4
+		float alpha = index / 4.0f;
+		rotateAmount = FMath::Lerp(0.0f, -45.0f, alpha);
+
+		switch (index) {
+		case 0:
+			extraMovementToEnd = 0.0f;
+			break;
+		case 1:
+			extraMovementToEnd = 10.0f;
+			break;
+		case 2:
+			extraMovementToEnd = 30.0f;
+			break;
+		case 3:
 			extraMovementToEnd = 50.0f;
-		}
-		else if (pointCapLoopCurrentIndex == pointCapLoopLastIndex - 1)
-		{
-			rotateAmount = -25.0f;
-			extraMovementToEnd = 20.0f;
+			break;
+		case 4:
+			extraMovementToEnd = 100.0f;
+			break;
 		}
 
 		// Rotate the rVector and update it.
