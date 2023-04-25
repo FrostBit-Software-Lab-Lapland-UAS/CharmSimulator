@@ -37,7 +37,7 @@ AProceduralTunnel::AProceduralTunnel()
 	SplineComponent->SetTangentAtSplinePoint(PointIndex, NewTangent, ESplineCoordinateSpace::Local);
 
 	// Set the spline point type 
-	SplineComponent->SetSplinePointType(PointIndex, ESplinePointType::CurveClamped);
+	SplineComponent->SetSplinePointType(PointIndex, ESplinePointType::Curve);
 
 	// Update the SplinePointIndicator's transform to match the second spline point
 	if (SplinePointIndicator)
