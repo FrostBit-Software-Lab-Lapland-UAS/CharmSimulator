@@ -226,7 +226,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int32 SetUpProceduralGeneratorLoopParams();
 	UFUNCTION(BlueprintCallable)
-	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isHeightAdjust, bool isIntersectionAdded, IntersectionType interType);
+	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType);
 	UFUNCTION(BlueprintCallable)
 	void SetValues(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load);
 
@@ -235,15 +235,15 @@ public:
 	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType);
 	void SetupSplineLocations();
 	void ResetCurrentMeshEndData();
-	void GenerateVerticesAndUVs(bool isHeightAdjust, bool isIntersectionAdded, int32 lastIndex);
-	void UsePreviousEndVerticesData(bool isHeightAdjust);
-	void GenerateVerticesForCurrentLoop(bool isHeightAdjust, bool isIntersectionAdded, int32 lastIndex);
+	void GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
+	void UsePreviousEndVerticesData(bool isSinglePointUpdate);
+	void GenerateVerticesForCurrentLoop(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
 
 	int32 GetSurfaceIndex();
 	int32 CalculateArrayIndex();
 
 	bool GetIsFirstLoopAround();
-	bool usePreviousEndVertices (bool isIntersectionAdded, bool isHeightAdjust);
+	bool usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate);
 
 
 	FVector RightTunnelStart();
@@ -261,7 +261,7 @@ public:
 	FVector GetVerticeForConnectedTunnel();
 	FVector GetVerticeForIntersectionAddedTunnel();
 	FVector GetLatestVerticeForIntersectionContinuationTunnels();
-	bool IsConnectedToOtherTunnel(bool isHeightAdjust);
+	bool IsConnectedToOtherTunnel(bool isSinglePointUpdate);
 	bool IsIntersectionAddedToThisTunnel(bool isIntersectionAdded, int32 lastIndex);
 	FVector GetVerticeForDefaultTunnel(bool isFirstLoopAround, bool isIntersectionAdded);
 	FVector AdjustLatestVerticeForOverlap(FVector latestVertice, int32 surfaceIndex);

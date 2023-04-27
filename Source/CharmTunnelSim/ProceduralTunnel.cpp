@@ -39,6 +39,12 @@ AProceduralTunnel::AProceduralTunnel()
 	// Set the spline point type 
 	SplineComponent->SetSplinePointType(PointIndex, ESplinePointType::Curve);
 
+	// Set the tangent for the first spline point 
+	SplineComponent->SetTangentAtSplinePoint(0, NewTangent, ESplineCoordinateSpace::Local);
+
+	// Set the spline point type 
+	SplineComponent->SetSplinePointType(0, ESplinePointType::CurveCustomTangent);
+
 	// Update the SplinePointIndicator's transform to match the second spline point
 	if (SplinePointIndicator)
 	{
@@ -232,7 +238,7 @@ int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
 /////////// Main function that handles the procedural tunnel mesh generation loop
 
 
-void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isHeightAdjust, bool isIntersectionAdded, IntersectionType interType) {
+void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType) {
 	// Initialize variables for procedural generation loop
 	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex, interType);
 
@@ -250,14 +256,14 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 			ResetCurrentMeshEndData();
 
 			// Generate vertices and UVs for the tunnel mesh
-			GenerateVerticesAndUVs(isHeightAdjust, isIntersectionAdded, lastIndex);
+			GenerateVerticesAndUVs(isSinglePointUpdate, isIntersectionAdded, lastIndex);
 
 			// Create the mesh triangles, tangents, and normals
 			MakeMeshTriangles();
 			MakeMeshTangentsAndNormals();
 
 			// Build the mesh with the generated data
-			MakeMesh(meshLoopCurrentIndex, isHeightAdjust, isLoad);
+			MakeMesh(meshLoopCurrentIndex, isSinglePointUpdate, isLoad);
 
 			// Append vertices if required for loading or resetting
 			if (isLoad || isReset) {
@@ -295,25 +301,25 @@ void AProceduralTunnel::ResetCurrentMeshEndData() {
 }
 
 // Generate vertices and UVs for the tunnel mesh
-void AProceduralTunnel::GenerateVerticesAndUVs(bool isHeightAdjust, bool isIntersectionAdded, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex) {
 	for (pointCapLoopCurrentIndex = 0; pointCapLoopCurrentIndex <= pointCapLoopLastIndex; pointCapLoopCurrentIndex++) {
-		if (usePreviousEndVertices(isIntersectionAdded, isHeightAdjust)) {
-			UsePreviousEndVerticesData(isHeightAdjust);
+		if (usePreviousEndVertices(isIntersectionAdded, isSinglePointUpdate)) {
+			UsePreviousEndVerticesData(isSinglePointUpdate);
 		}
 		else {
-			GenerateVerticesForCurrentLoop(isHeightAdjust, isIntersectionAdded, lastIndex);
+			GenerateVerticesForCurrentLoop(isSinglePointUpdate, isIntersectionAdded, lastIndex);
 		}
 	}
 }
 
 // Use the previous end vertices data for the current tunnel section
-void AProceduralTunnel::UsePreviousEndVerticesData(bool isHeightAdjust) {
+void AProceduralTunnel::UsePreviousEndVerticesData(bool isSinglePointUpdate) {
 	// Calculate the index that provides the correct mesh end data from the array (previous meshes end)
 	int32 meshEndIndex = SplineComponent->GetNumberOfSplinePoints() - 3 - meshLoopCurrentIndex; 
 
 	// Check if we are at the end of the last mesh that we are generating and the height is adjusted
 	// In this case, we want to use this mesh's previously saved end data
-	if (meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isHeightAdjust) 
+	if (meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isSinglePointUpdate) 
 	{																													 
 		meshEndIndex = meshEnds.Num() - 1 - meshLoopCurrentIndex;
 		currentMeshEndData = meshEnds[meshEndIndex];
@@ -329,7 +335,7 @@ void AProceduralTunnel::UsePreviousEndVerticesData(bool isHeightAdjust) {
 	wallUV.Append(end.WallUV);
 }
 
-void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isHeightAdjust, bool isIntersectionAdded, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex) {
 	InitializeStartVectorRightVectorAndValueInTexture();
 
 	// Loop through each point in the loop that goes around tunnel
@@ -346,7 +352,7 @@ void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isHeightAdjust, bool
 			latestVertice = GetLatestVerticeForIntersectionContinuationTunnels();
 		}
 		// Check if this tunnel is connected to another tunnel
-		else if (IsConnectedToOtherTunnel(isHeightAdjust)) {
+		else if (IsConnectedToOtherTunnel(isSinglePointUpdate)) {
 			// Get the vertice from the connected tunnel
 			latestVertice = GetVerticeForConnectedTunnel();
 		}
@@ -402,9 +408,9 @@ FVector AProceduralTunnel::GetLatestVerticeForIntersectionContinuationTunnels() 
 }
 
 // Check if the current tunnel is connected to another tunnel and not adjusting height
-bool AProceduralTunnel::IsConnectedToOtherTunnel(bool isHeightAdjust) {
+bool AProceduralTunnel::IsConnectedToOtherTunnel(bool isSinglePointUpdate) {
 	// Check if the current tunnel is at its end and connected to another tunnel
-	return !isHeightAdjust && isEndConnected && meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && IsValid(connectedActor);
+	return !isSinglePointUpdate && isEndConnected && meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && IsValid(connectedActor);
 }
 
 // Get the vertices from the connected tunnel mesh based on the current surface index.
@@ -632,7 +638,7 @@ void AProceduralTunnel::AddUVCoordinates(int32 surface, int32 loopIndexBetweenPo
 
 
 
-bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isHeightAdjust) {
+bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate) {
 	int32 z = SplineComponent->GetNumberOfSplinePoints() - 3 - meshLoopCurrentIndex;
 	if(isIntersectionAdded && pointCapLoopCurrentIndex == pointCapLoopLastIndex) {
 		return false;
@@ -644,7 +650,7 @@ bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool i
 			return true;
 		}
 		// IF HEIGHT IS ADJUSTED AND WE ARE IN THE LAST MESHES END
-		if(meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isHeightAdjust) {
+		if(meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isSinglePointUpdate) {
 			return true;	
 		}
 		return false;
