@@ -111,22 +111,35 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		if (spline != SplineComponent)
 		{
 			// Get the last spline point of the other tunnel
-			int32 otherSplinesLastIndex = spline->GetNumberOfSplinePoints() - 1;
-			if (!proceduralTunnel->IsChildActor()) {
+			int32 otherSplinesLastIndex;
+			if (proceduralTunnel->isFirstTunnel)
+			{
 				otherSplinesLastIndex = 0;
 			}
-			FVector otherLastPointLocation = spline->GetLocationAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
+			else {
+				otherSplinesLastIndex = spline->GetNumberOfSplinePoints() - 1;
+			}
+
+			FVector comparedPointsLocation = spline->GetLocationAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
 
 			// Calculate the distance between the current tunnel end and the other tunnel end
-			float distance = FVector::Distance(otherLastPointLocation, lastPointLocation);
+			float distance = FVector::Distance(comparedPointsLocation, lastPointLocation);
 
 			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
 			if (distance < maxDistance)
 			{
-				closestPoint = otherLastPointLocation;
+				closestPoint = comparedPointsLocation;
 				closestTangent = spline->GetTangentAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
 				connectedActor = proceduralTunnel;
-				connecToStart = false;
+				if (otherSplinesLastIndex == 0) 
+				{
+					connecToStart = true;
+				}
+				else
+				{
+					connecToStart = false;
+				}
+				
 			}
 		}
 		// If we are comparing self spline we snap to the start if to something
@@ -236,16 +249,6 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 		TunnelMeshes.Last()->DestroyComponent();
 		TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
 		meshEnds.RemoveAt(meshEnds.Num() - 1);
-		/*int32 lastMeshIndex = TunnelMeshes.Num() - 1;
-		if(lastMeshIndex >= 0) {
-			TunnelMeshes[lastMeshIndex]->DestroyComponent();
-			TunnelMeshes.RemoveAt(lastMeshIndex);
-		}
-		lastMeshIndex = TunnelMeshes.Num()- 1;
-		if(lastMeshIndex >= 0) {
-			TunnelMeshes[lastMeshIndex]->DestroyComponent();
-			TunnelMeshes.RemoveAt(lastMeshIndex);
-		}*/
 	}
 }
 
@@ -508,9 +511,9 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 		verticeToUse = verticeArrayToUse[FMath::Clamp(verticeArrayToUse.Num() - (1 + arrayIndex), 0, verticeArrayToUse.Num() - 1)];
 	}
 
-	if (connectedActor == this) {
+	/*if (connectedActor == this) {
 		return verticeToUse;
-	}
+	}*/
     
 
 	// Transform the vertex from the connected actor's transform to world transform.
