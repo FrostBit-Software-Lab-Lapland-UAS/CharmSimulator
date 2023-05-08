@@ -50,6 +50,8 @@ public:
 	TArray<AStaticMeshActor*> staticMeshes;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	bool isFirstTunnel = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	bool isReset;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	bool isUndo;

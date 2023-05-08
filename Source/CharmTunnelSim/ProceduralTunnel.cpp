@@ -87,7 +87,6 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 {
 	// Initialize variables to store the closest point, lowest distance, and closest tangent
 	FVector closestPoint = FVector(0, 0, 0);
-	float lowestDistance = -1.0f;
 	FVector closestTangent;
 
 	// Get the last spline point of the current tunnel
@@ -97,6 +96,9 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 	// Get all actors of class AProceduralTunnel in the world
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProceduralTunnel::StaticClass(), FoundActors);
+
+	// If we are
+	bool connecToStart = false;
 
 	// Loop through all the found tunnel actors
 	for (AActor* tunnel : FoundActors)
@@ -119,11 +121,29 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			float distance = FVector::Distance(otherLastPointLocation, lastPointLocation);
 
 			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if (distance < maxDistance && (distance < lowestDistance || lowestDistance == -1.0f))
+			if (distance < maxDistance)
 			{
 				closestPoint = otherLastPointLocation;
 				closestTangent = spline->GetTangentAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
 				connectedActor = proceduralTunnel;
+				connecToStart = false;
+			}
+		}
+		// If we are comparing self spline we snap to the start if to something
+		else
+		{
+			FVector selfFirstPointLocation = spline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+
+			// Calculate the distance between the current tunnel end and the other tunnel end
+			float distance = FVector::Distance(selfFirstPointLocation, lastPointLocation);
+
+			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
+			if (distance < maxDistance)
+			{
+				closestPoint = selfFirstPointLocation;
+				closestTangent = spline->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World);
+				connectedActor = proceduralTunnel;
+				connecToStart = true;
 			}
 		}
 	}
@@ -134,7 +154,12 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		isEndConnected = true;
 		connectedActor->isEndConnected = true; // Set the closest proceduralTunnel's isEndConnected to true
 		SplineComponent->SetLocationAtSplinePoint(lastIndex, closestPoint, ESplineCoordinateSpace::World, true);
-		SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent * -1, ESplineCoordinateSpace::World, true);
+		if (connecToStart) {
+			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent, ESplineCoordinateSpace::World, true);
+		}
+		else {
+			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent * -1, ESplineCoordinateSpace::World, true);
+		}
 	}
 	// If no closest point was found, set the end connection status to false
 	else
@@ -208,7 +233,10 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	else if (distanceBetweenPoints < pointOffSet && numberOfPoints > 3)
 	{
 		SplineComponent->RemoveSplinePoint(numberOfPoints -2);
-		int32 lastMeshIndex = TunnelMeshes.Num() - 1;
+		TunnelMeshes.Last()->DestroyComponent();
+		TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
+		meshEnds.RemoveAt(meshEnds.Num() - 1);
+		/*int32 lastMeshIndex = TunnelMeshes.Num() - 1;
 		if(lastMeshIndex >= 0) {
 			TunnelMeshes[lastMeshIndex]->DestroyComponent();
 			TunnelMeshes.RemoveAt(lastMeshIndex);
@@ -217,7 +245,7 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 		if(lastMeshIndex >= 0) {
 			TunnelMeshes[lastMeshIndex]->DestroyComponent();
 			TunnelMeshes.RemoveAt(lastMeshIndex);
-		}
+		}*/
 	}
 }
 
@@ -231,12 +259,6 @@ int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
 	countOfMeshesToRemake = FMath::Clamp((SplineComponent->GetNumberOfSplinePoints() -2), 0, 2) + (fmax(0, ((SplineComponent->GetNumberOfSplinePoints() - 2) - TunnelMeshes.Num())));
 	return countOfMeshesToRemake * -1;
 }
-
-
-///////////
-///////////
-/////////// Main function that handles the procedural tunnel mesh generation loop
-
 
 void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType) {
 	// Initialize variables for procedural generation loop
@@ -303,12 +325,38 @@ void AProceduralTunnel::ResetCurrentMeshEndData() {
 // Generate vertices and UVs for the tunnel mesh
 void AProceduralTunnel::GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex) {
 	for (pointCapLoopCurrentIndex = 0; pointCapLoopCurrentIndex <= pointCapLoopLastIndex; pointCapLoopCurrentIndex++) {
+		// Clear arrays holding vertice data of start of tunnel
+		if (IsFirstLoopOfWholeTunnel()) {
+			firstFloorVertices.Empty();
+			firstRightVertices.Empty();
+			firstRoofVertices.Empty();
+			firstLeftVertices.Empty();
+		}
 		if (usePreviousEndVertices(isIntersectionAdded, isSinglePointUpdate)) {
 			UsePreviousEndVerticesData(isSinglePointUpdate);
 		}
 		else {
 			GenerateVerticesForCurrentLoop(isSinglePointUpdate, isIntersectionAdded, lastIndex);
 		}
+	}
+}
+
+bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate) {
+	int32 z = SplineComponent->GetNumberOfSplinePoints() - 3 - meshLoopCurrentIndex;
+	if(isIntersectionAdded && pointCapLoopCurrentIndex == pointCapLoopLastIndex) {
+		return false;
+	} 
+	else 
+	{
+		// FIRST LOOP AROUND && THERE IS END PART TO USE && WE ARE IN NOT TRYING NEGATIVES OR SOMETHING LIKE THAT LAST 2 OF CLAUSE
+		if((pointCapLoopCurrentIndex == 0) && (meshEnds.Num() > 0) && (z >= 0) && (meshEnds.Num() - 1 >= z)) {
+			return true;
+		}
+		// IF HEIGHT IS ADJUSTED AND WE ARE IN THE LAST MESHES END
+		if(meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isSinglePointUpdate) {
+			return true;	
+		}
+		return false;
 	}
 }
 
@@ -419,20 +467,51 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 
     switch (surfaceIndex) {
         case 0:
-            verticeArrayToUse = connectedActor->lastFloorVertices;
+			if (connectedActor->isFirstTunnel) {
+				verticeArrayToUse = connectedActor->firstFloorVertices;
+			}
+			else {
+				verticeArrayToUse = connectedActor->lastFloorVertices;
+			}
             break;
         case 1:
-            verticeArrayToUse = connectedActor->lastLeftVertices;
+			if (connectedActor->isFirstTunnel) {
+				verticeArrayToUse = connectedActor->firstRightVertices;
+			}
+			else {
+				verticeArrayToUse = connectedActor->lastLeftVertices;
+			}
             break;
         case 2:
-            verticeArrayToUse = connectedActor->lastRoofVertices;
+			if (connectedActor->isFirstTunnel) {
+				verticeArrayToUse = connectedActor->firstRoofVertices;
+			}
+			else {
+				verticeArrayToUse = connectedActor->lastRoofVertices;
+			}
             break;
         case 3:
-            verticeArrayToUse = connectedActor->lastRightVertices;
+			if (connectedActor->isFirstTunnel) {
+				verticeArrayToUse = connectedActor->firstLeftVertices;
+			}
+			else {
+				verticeArrayToUse = connectedActor->lastRightVertices;
+			}
             break;
     }
 	// Get the specific vertex to use from the vertex array.
-    FVector verticeToUse = verticeArrayToUse[FMath::Clamp(verticeArrayToUse.Num() - (1 + arrayIndex), 0, verticeArrayToUse.Num() - 1)]; 
+	FVector verticeToUse;
+	if (connectedActor->isFirstTunnel) {
+		verticeToUse = verticeArrayToUse[arrayIndex];
+	}
+	else {
+		verticeToUse = verticeArrayToUse[FMath::Clamp(verticeArrayToUse.Num() - (1 + arrayIndex), 0, verticeArrayToUse.Num() - 1)];
+	}
+
+	if (connectedActor == this) {
+		return verticeToUse;
+	}
+    
 
 	// Transform the vertex from the connected actor's transform to world transform.
     verticeToUse = UKismetMathLibrary::TransformLocation(connectedActor->GetTransform(), verticeToUse); 
@@ -631,32 +710,6 @@ void AProceduralTunnel::AddUVCoordinates(int32 surface, int32 loopIndexBetweenPo
 	}
 }
 
-
-///////////
-///////////
-///////////
-
-
-
-bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate) {
-	int32 z = SplineComponent->GetNumberOfSplinePoints() - 3 - meshLoopCurrentIndex;
-	if(isIntersectionAdded && pointCapLoopCurrentIndex == pointCapLoopLastIndex) {
-		return false;
-	} 
-	else 
-	{
-		// FIRST LOOP AROUND && THERE IS END PART TO USE && WE ARE IN NOT TRYING NEGATIVES OR SOMETHING LIKE THAT LAST 2 OF CLAUSE
-		if((pointCapLoopCurrentIndex == 0) && (meshEnds.Num() > 0) && (z >= 0) && (meshEnds.Num() - 1 >= z)) {
-			return true;
-		}
-		// IF HEIGHT IS ADJUSTED AND WE ARE IN THE LAST MESHES END
-		if(meshLoopCurrentIndex == meshLoopLastIndex && pointCapLoopCurrentIndex == pointCapLoopLastIndex && isSinglePointUpdate) {
-			return true;	
-		}
-		return false;
-	}
-}
-
 // GET VERTICES FOR THE START OF RIGHT TUNNEL
 FVector AProceduralTunnel::RightTunnelStart() 
 {
@@ -806,7 +859,6 @@ FVector AProceduralTunnel::StraightTunnelStart()
 // GET VERTICE LOCATION IN FLOOR
 FVector AProceduralTunnel::GetFloorVertice()
 {
-	/*This is experimental*/
 	// Calculate the distance along the spline
 	float startDistance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (2 + meshLoopCurrentIndex));
 	float currentDistance;
