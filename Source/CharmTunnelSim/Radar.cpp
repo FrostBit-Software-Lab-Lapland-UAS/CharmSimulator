@@ -34,11 +34,11 @@ void ARadar::BeginPlay()
     // IF ROS CONNECTION IS ALREADY MADE WE CREATE ROS TOPIC IN THE START
     if (rosInstance->bIsConnected) {
         // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
+        RadarDataTopic = NewObject<UTopic>(UTopic::StaticClass());
+        RadarDataTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
 
         // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
+        RadarDataTopic->Advertise();
     }
 
 
@@ -108,13 +108,13 @@ void ARadar::Tick(float DeltaTime)
     TRACE_CPUPROFILER_EVENT_SCOPE(ARadar::PostPhysTick);
 
     // IF ROS INSTANCE IS CONNECTED AND WE DONT HAVE TOPIC MADE YET
-    if (rosInstance->bIsConnected && !IsValid(ExampleTopic)) {
+    if (rosInstance->bIsConnected && !IsValid(RadarDataTopic)) {
         // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
+        RadarDataTopic = NewObject<UTopic>(UTopic::StaticClass());
+        RadarDataTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
 
         // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
+        RadarDataTopic->Advertise();
     }
 
     CalculateCurrentVelocity(DeltaTime);
@@ -292,8 +292,8 @@ void ARadar::SendLineTraces(float DeltaTime)
     pointcloud->row_step = Rays.Num() * point_step;     /// LENGHT OF DATA IN BYTES
 
     // IF ROS IS CONNECTED AND TOPIC IS VALID WE PUBLISH DATA
-    if (rosInstance->bIsConnected && IsValid(ExampleTopic) && sizeof(pointcloud->data_ptr) > 0) {
-        ExampleTopic->Publish(pointcloud);
+    if (rosInstance->bIsConnected && IsValid(RadarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
+        RadarDataTopic->Publish(pointcloud);
     }
 
     delete[] uArray;

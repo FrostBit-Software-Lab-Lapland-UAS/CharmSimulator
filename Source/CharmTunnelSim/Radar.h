@@ -56,7 +56,7 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FVector> HitLocations;
 	UPROPERTY()
-	UTopic* ExampleTopic;
+	UTopic* RadarDataTopic;
 
 
 	TSharedPtr<ROSMessages::sensor_msgs::PointCloud2> pointcloud = MakeShareable(new ROSMessages::sensor_msgs::PointCloud2);

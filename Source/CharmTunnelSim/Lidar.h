@@ -77,7 +77,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FVector> HitLocations;
 	UPROPERTY()
-	UTopic* ExampleTopic;
+	UTopic* LidarDataTopic;
 	uint8* lidarDataByteArray;
 
 	TArray<float> LaserAngles;

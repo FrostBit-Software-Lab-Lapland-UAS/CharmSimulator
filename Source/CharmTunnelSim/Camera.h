@@ -51,7 +51,7 @@ protected:
 	uint32_t internResolution;
 	float deltaCount;
 	UPROPERTY()
-	UTopic* ExampleTopic;
+	UTopic* CameraDataTopic;
 
 	TSharedPtr<ROSMessages::sensor_msgs::Image> output_image = MakeShareable(new ROSMessages::sensor_msgs::Image);
 

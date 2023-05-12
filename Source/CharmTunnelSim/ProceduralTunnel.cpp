@@ -212,7 +212,7 @@ void AProceduralTunnel::ControlSplinePoints()
 // DOES WHAT IT SAYS IN NAME
 void AProceduralTunnel::AddOrRemoveSplinePoints()
 {
-	float maxDistanceBetweenPoints = 500; //1000 original
+	float maxDistanceBetweenPoints = 750; //1000 original WAS 500 NOW
 	float pointOffSet = 200;
 	APlayerController* playerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if(playerController->WasInputKeyJustPressed(EKeys::LeftShift)) // IF LEFT SHIFT IS CLIKKED ADD NEW POINT WHERE WE ARE
@@ -579,30 +579,31 @@ FVector AProceduralTunnel::GetVerticeForDefaultTunnel(bool isFirstLoopAround, bo
 
 // Adjusts the latest vertice position for overlap, ensuring a smooth transition between tunnel segments.
 FVector AProceduralTunnel::AdjustLatestVerticeForOverlap(FVector vertice, int32 surface) {
-	FVector oneStepBefore = FVector(0.0f, 0.0f, 0.0f);
-
-	// Check the surface type and retrieve the appropriate vertice for comparison.
+	FVector previousLoopVertice = FVector(0.0f, 0.0f, 0.0f);
+	// On the walls/roof
 	if (surface != 0) {
 		if (wallVertices.Num() - (pointsInHeight * 2 + pointsInWidth + 1) >= 0) {
-			oneStepBefore = wallVertices[wallVertices.Num() - (pointsInHeight * 2 + pointsInWidth + 1)];
+			previousLoopVertice = wallVertices[wallVertices.Num() - (pointsInHeight * 2 + pointsInWidth + 1)];
 		}
 	}
+	// On the floor
 	else {
 		if (groundVertices.Num() - (pointsInWidth + 1) >= 0) {
-			oneStepBefore = groundVertices[groundVertices.Num() - (pointsInWidth + 1)];
+			previousLoopVertice = groundVertices[groundVertices.Num() - (pointsInWidth + 1)];
 		}
 	}
+	// This is forward vector pointing at startLocationOnSpline
+	forwardVector;
 
 	// If a valid vertice is found for comparison, adjust the current vertice position if necessary.
-	if (oneStepBefore != FVector(0.0f, 0.0f, 0.0f)) {
-		float latestDistance = FVector::Distance(vertice, oneStepBefore);
-		FVector nextVertice = vertice + forwardVector * stepSizeOnSpline;
-		float currentPointDistance = FVector::Distance(nextVertice, vertice);
-		float nextPointDistance = FVector::Distance(nextVertice, oneStepBefore);
+	if (previousLoopVertice != FVector(0.0f, 0.0f, 0.0f)) {
+		// Calculate the projections of the vectors onto the forward vector
+		float currentVerticeProjection = FVector::DotProduct((vertice - startLocationOnSpline).GetSafeNormal(), forwardVector);
+		float previousVerticeProjection = FVector::DotProduct((previousLoopVertice - startLocationOnSpline).GetSafeNormal(), forwardVector);
 
-		// If the distance between the next vertice and the previous one is less than the current distance, adjust the vertice position.
-		if (nextPointDistance - 20.0f <= currentPointDistance) {
-			vertice = oneStepBefore;
+		// If previous vertices projection is larger than current vertices projection, we set current vertice to previous vertices location.
+		if (previousVerticeProjection >= currentVerticeProjection) {
+			vertice = previousLoopVertice;
 		}
 	}
 

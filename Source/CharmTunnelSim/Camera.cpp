@@ -32,11 +32,11 @@ void ACamera::BeginPlay()
     // IF ROS CONNECTION IS ALREADY MADE WE CREATE ROS TOPIC IN THE START
     if (rosInstance->bIsConnected) {
         // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/Image"), 0);
+        CameraDataTopic = NewObject<UTopic>(UTopic::StaticClass());
+        CameraDataTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/Image"), 0);
 
         // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
+        CameraDataTopic->Advertise();
     }
 
     ourCamera->FieldOfView = Description.field_of_view;
@@ -80,16 +80,6 @@ void ACamera::Tick(float DeltaTime)
     }
     else {
         deltaCount = 0;
-    }
-
-    // IF ROS INSTANCE IS CONNECTED AND WE DONT HAVE TOPIC MADE YET
-    if (rosInstance->bIsConnected && !IsValid(ExampleTopic)) {
-        // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/Image"), 0);
-
-        // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
     }
 
     CaptureAndPublishImage();
@@ -151,10 +141,10 @@ void ACamera::CaptureAndPublishImage()
 
             // Send the processed image data to the ROS API
 
-            // Check if ROS is connected and the ExampleTopic is valid
-            if (rosInstance->bIsConnected && IsValid(ExampleTopic) && (ReadBufferData.Num() * 3) > 0) {
+            // Check if ROS is connected and the CameraDataTopic is valid
+            if (rosInstance->bIsConnected && IsValid(CameraDataTopic) && (ReadBufferData.Num() * 3) > 0) {
                 // Publish the output_image to the ROS topic
-                bool didPub = ExampleTopic->Publish(output_image);
+                bool didPub = CameraDataTopic->Publish(output_image);
             }
 
             // Cleanup: delete the allocated RGB array

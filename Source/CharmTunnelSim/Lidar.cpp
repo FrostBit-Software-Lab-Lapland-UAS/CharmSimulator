@@ -31,11 +31,11 @@ void ALidar::BeginPlay()
     // IF ROS CONNECTION IS ALREADY MADE WE CREATE ROS TOPIC IN THE START
     if (rosInstance->bIsConnected) {
         // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
+        LidarDataTopic = NewObject<UTopic>(UTopic::StaticClass());
+        LidarDataTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
 
         // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
+        LidarDataTopic->Advertise();
     }
 
     /// DATA FIELDS FOR POINTCLOUD
@@ -96,13 +96,13 @@ void ALidar::Tick(float DeltaTime)
     TRACE_CPUPROFILER_EVENT_SCOPE(ALidar::PostPhysTick);
 
     // IF ROS INSTANCE IS CONNECTED AND WE DONT HAVE TOPIC MADE YET
-    if (rosInstance->bIsConnected && !IsValid(ExampleTopic)) {
+    if (rosInstance->bIsConnected && !IsValid(LidarDataTopic)) {
         // Initialize a topic
-        ExampleTopic = NewObject<UTopic>(UTopic::StaticClass());
-        ExampleTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
+        LidarDataTopic = NewObject<UTopic>(UTopic::StaticClass());
+        LidarDataTopic->Init(rosInstance->ROSIntegrationCore, Description.topicName, TEXT("sensor_msgs/PointCloud2"), 0);
 
         // (Optional) Advertise the topic
-        ExampleTopic->Advertise();
+        LidarDataTopic->Advertise();
     }
 
     SimulateLidar(DeltaTime);
@@ -153,8 +153,8 @@ void ALidar::SimulateLidar(const float DeltaTime)
 	ComputeAndSaveDetections(ActorTransf);
     
     // IF ROS IS CONNECTED AND TOPIC IS VALID WE PUBLISH DATA
-    if (rosInstance->bIsConnected && IsValid(ExampleTopic) && sizeof(pointcloud->data_ptr) > 0) {
-        bool didPub = ExampleTopic->Publish(pointcloud);
+    if (rosInstance->bIsConnected && IsValid(LidarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
+        bool didPub = LidarDataTopic->Publish(pointcloud);
     }
 
     delete[] lidarDataByteArray;
