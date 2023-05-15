@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectIterator.h"
 #include "TimerManager.h"
+#include <thread>
 #include "Async/Async.h"
 
 static void UnsubscribeAndUnadvertiseAllTopics()
@@ -121,7 +122,9 @@ void UROSIntegrationGameInstance::Init()
 			else if (!bReconnect)
 			{
 				bROSstarted = true;
-				system("start powershell.exe -NoExit \"wsl -- cd ~/catkin_ws `&`& source devel/setup.bash `&`& roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True\"");
+				std::thread([]() {
+					system("wsl -d Ubuntu-20.04 -e bash -c \"cd ~/catkin_ws && source devel/setup.bash && roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True; exec $SHELL\"");
+					}).detach();
 				UE_LOG(LogROS, Error, TEXT("Failed to connect to server %s:%u. Please make sure that your rosbridge is running."), *ROSBridgeServerHost, ROSBridgeServerPort);
 			}
 
