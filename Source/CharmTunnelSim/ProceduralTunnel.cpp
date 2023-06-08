@@ -183,13 +183,13 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 
 
 // WHEN TUNNEL IS DRAGGED FORWARD OF BACKWARD WE CONTROL THAT CHANGE HERE
-void AProceduralTunnel::ControlSplinePoints() 
+void AProceduralTunnel::ControlSplinePoints(bool interSectionAdded)
 {
 	if(!isReset) 
 	{
 		if (!isEndConnected && !isUndo) // ADD SPLINE POINTS
 		{ 
-			AddOrRemoveSplinePoints();
+			AddOrRemoveSplinePoints(interSectionAdded);
 		}
 		else if (!isEndConnected && isUndo && SplineComponent->GetNumberOfSplinePoints() >= 2)
 		{
@@ -210,7 +210,7 @@ void AProceduralTunnel::ControlSplinePoints()
 }
 
 // DOES WHAT IT SAYS IN NAME
-void AProceduralTunnel::AddOrRemoveSplinePoints()
+void AProceduralTunnel::AddOrRemoveSplinePoints(bool interSectionAdded)
 {
 	float maxDistanceBetweenPoints = 750; //1000 original WAS 500 NOW
 	float pointOffSet = 200;
@@ -228,6 +228,10 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	float previousDistance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(lastIndex - 1);
 	float distanceBetweenPoints = currentDistance - previousDistance;
 	int32 pointsToFitBetween = FMath::FloorToInt(distanceBetweenPoints / maxDistanceBetweenPoints);
+
+	if (interSectionAdded) {
+		pointsToFitBetween = pointsToFitBetween - 2;
+	}
 
 	if (pointsToFitBetween != 0) 
 	{

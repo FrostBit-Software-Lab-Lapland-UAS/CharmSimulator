@@ -224,7 +224,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SnapToEndOfOtherSpline();
 	UFUNCTION(BlueprintCallable)
-	void ControlSplinePoints();
+	void ControlSplinePoints(bool bInterSectionAdded = false);
 	UFUNCTION(BlueprintCallable)
 	int32 SetUpProceduralGeneratorLoopParams();
 	UFUNCTION(BlueprintCallable)
@@ -232,7 +232,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetValues(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load);
 
-	void AddOrRemoveSplinePoints();
+	void AddOrRemoveSplinePoints(bool interSectionAdded);
 
 	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType);
 	void SetupSplineLocations();
