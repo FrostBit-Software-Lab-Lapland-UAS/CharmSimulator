@@ -43,7 +43,7 @@ AProceduralTunnel::AProceduralTunnel()
 	SplineComponent->SetSplinePointType(0, ESplinePointType::CurveCustomTangent);
 
 	// Set the tangent for the first spline point 
-	FVector FirstPoint(300.f, 0.f, 0.f);
+	FVector FirstPoint(1000.f, 0.f, 0.f); //300
 	SplineComponent->SetTangentAtSplinePoint(0, SecondPointTangent, ESplineCoordinateSpace::Local);
 
 	// Update the SplinePointIndicator's transform to match the second spline point
