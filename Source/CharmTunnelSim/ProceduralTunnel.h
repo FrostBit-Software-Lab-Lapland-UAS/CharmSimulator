@@ -44,7 +44,7 @@ protected:
 public:	
 	//DEFAULT VALUES
 	FVector wallStartVertice;
-	float maxDistance = 150.0f;
+	float maxDistance = 300.0f;
 	float stepSizeOnSpline = 50.0f; ///100 original lower the number the higher the resolution
 	float lastStepSizeOnSpline = 0.0f;
 	TArray<AStaticMeshActor*> staticMeshes;
