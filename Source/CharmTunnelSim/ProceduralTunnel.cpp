@@ -112,16 +112,16 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		if (spline != SplineComponent)
 		{
 			// Get the last spline point of the other tunnel
-			int32 otherSplinesLastIndex;
+			int32 SplinePointIndexToSnap;
 			if (proceduralTunnel->isFirstTunnel)
 			{
-				otherSplinesLastIndex = 0;
+				SplinePointIndexToSnap = 0;
 			}
 			else {
-				otherSplinesLastIndex = spline->GetNumberOfSplinePoints() - 1;
+				SplinePointIndexToSnap = spline->GetNumberOfSplinePoints() - 1;
 			}
 
-			FVector comparedPointsLocation = spline->GetLocationAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
+			FVector comparedPointsLocation = spline->GetLocationAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
 
 			// Calculate the distance between the current tunnel end and the other tunnel end
 			float distance = FVector::Distance(comparedPointsLocation, lastPointLocation);
@@ -130,9 +130,9 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			if (distance < maxDistance)
 			{
 				closestPoint = comparedPointsLocation;
-				closestTangent = spline->GetTangentAtSplinePoint(otherSplinesLastIndex, ESplineCoordinateSpace::World);
+				closestTangent = spline->GetTangentAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
 				connectedActor = proceduralTunnel;
-				if (otherSplinesLastIndex == 0) 
+				if (SplinePointIndexToSnap == 0) 
 				{
 					connecToStart = true;
 				}
@@ -1040,7 +1040,6 @@ FVector AProceduralTunnel::GetRoofVertice()
 }
 
 // GET VERTICE LOCATION IN LEFT WALL
-
 FVector AProceduralTunnel::GetLeftVertice(bool isFirstLoopARound, bool isIntersectionAdded)
 {
 	bool isEndOrStar = false;

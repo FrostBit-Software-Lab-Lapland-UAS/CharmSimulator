@@ -102,17 +102,11 @@ void UROSIntegrationGameInstance::Init()
 
 			if (bIsConnected)
 			{
-				UE_LOG(LogROS, Display, TEXT("Start spawn stuff 0"));
 				UWorld* CurrentWorld = GetWorld();
 				if (CurrentWorld)
 				{
 					ROSIntegrationCore->SetWorld(CurrentWorld);
-					UE_LOG(LogROS, Display, TEXT("Start spawn stuff 1"));
-					UE_LOG(LogROS, Display, TEXT("Start spawn stuff 2"));
 					ROSIntegrationCore->InitSpawnManager();
-
-					UE_LOG(LogTemp, Warning, TEXT("The boolean value is %s"), (ROSIntegrationCore->_Implementation ? TEXT("true") : TEXT("false")));
-
 				}
 				else
 				{
@@ -122,9 +116,13 @@ void UROSIntegrationGameInstance::Init()
 			else if (!bReconnect)
 			{
 				bROSstarted = true;
+
 				std::thread([]() {
-					system("wsl -d Ubuntu-20.04 -e bash -c \"cd ~/catkin_ws && source devel/setup.bash && roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True; exec $SHELL\"");
+					system("wsl -d Ubuntu-20.04 -e bash -c \"export ROS_MASTER_URI=http://$(hostname -I | awk '{print $1}'):11311 && export ROS_IP=$(hostname -I | awk '{print $1}') && cd ~/catkin_ws && source devel/setup.bash && roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True; exec $SHELL\"");
 					}).detach();
+				//std::thread([]() {
+				//	system("wsl -d Ubuntu-20.04 -e bash -c \"cd ~/catkin_ws && source devel/setup.bash && roslaunch rosbridge_server rosbridge_tcp.launch bson_only_mode:=True; exec $SHELL\"");
+				//	}).detach();
 				UE_LOG(LogROS, Error, TEXT("Failed to connect to server %s:%u. Please make sure that your rosbridge is running."), *ROSBridgeServerHost, ROSBridgeServerPort);
 			}
 
