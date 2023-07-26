@@ -39,6 +39,41 @@ struct FMeshSectionEnd
 };
 
 USTRUCT(Blueprintable)
+struct FPointData
+{
+	GENERATED_BODY()
+
+	float X;
+
+	float Y;
+
+	float Z;
+
+	float intensity;
+	//uint32 RGB;
+};
+
+USTRUCT(Blueprintable)
+struct FRayData
+{
+	GENERATED_BODY()
+	
+	float X;
+
+	float Y;
+
+	float Z;
+	
+	float Range;
+	
+	float Velocity;
+	
+	float AzimuthAngle;
+
+	float ElevationAngle;
+};
+
+USTRUCT(Blueprintable)
 struct FLidarDescription
 {
 	GENERATED_BODY()

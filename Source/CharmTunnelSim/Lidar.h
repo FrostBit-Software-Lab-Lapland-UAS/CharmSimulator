@@ -43,7 +43,7 @@ public:
 	virtual void Set(const FLidarDescription& LidarDescription);
 
 	TSharedPtr<ROSMessages::sensor_msgs::PointCloud2> pointcloud = MakeShareable(new ROSMessages::sensor_msgs::PointCloud2);
-	int32 point_step = 12; /// THIS INDICATES HOW MANY BYTES SINGLE POINT HOLDS. CHANGE THIS IF FIELDS ARE ADDED
+	int32 point_step = 16; /// THIS INDICATES HOW MANY BYTES SINGLE POINT HOLDS. CHANGE THIS IF FIELDS ARE ADDED
 	float CurrentHorizontalAngle = 0.0f;
 
 protected:
@@ -70,6 +70,9 @@ protected:
 	/// RawDetections and then send it to the LidarData structure.
 	void ComputeAndSaveDetections(const FTransform& SensorTransform);
 
+	/// Saving the hits the raycast returns per channel
+	float CalculateIntensity(FHitResult& Detection, const FTransform& SensorTransform);
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Parameters", meta = (ExposeOnSpawn = "true"))
 	FLidarDescription Description;
 
@@ -85,6 +88,7 @@ protected:
 	int tickCount = 0;
 
 	std::vector<std::vector<FHitResult>> RecordedHits;
+	std::vector<FPointData> PointArray;
 
 	std::vector<uint32_t> PointsPerChannel;
 

@@ -59,17 +59,6 @@ public:
 	UTopic* RadarDataTopic;
 
 
-	TSharedPtr<ROSMessages::sensor_msgs::PointCloud2> pointcloud = MakeShareable(new ROSMessages::sensor_msgs::PointCloud2);
-	int32 point_step = 28; /// THIS INDICATES HOW MANY BYTES SINGLE POINT HOLDS. CHANGE THIS IF FIELDS ARE ADDED
-
-
-	FCollisionQueryParams TraceParams;
-
-	FVector CurrentVelocity;
-
-	/// Used to compute the velocity of the radar
-	FVector PrevLocation;
-
 	struct RayData {
 		FVector hitLocation;
 		float Radius;
@@ -80,7 +69,17 @@ public:
 		bool didHit = false;
 	};
 
-	TArray<RayData> Rays;
+	TSharedPtr<ROSMessages::sensor_msgs::PointCloud2> pointcloud = MakeShareable(new ROSMessages::sensor_msgs::PointCloud2);
+	int32 point_step = 28; /// THIS INDICATES HOW MANY BYTES SINGLE POINT HOLDS. CHANGE THIS IF FIELDS ARE ADDED
+	std::vector<FRayData> RayArray;
+	TArray<FRayData> Rays;
+
+	FCollisionQueryParams TraceParams;
+
+	FVector CurrentVelocity;
+
+	/// Used to compute the velocity of the radar
+	FVector PrevLocation;
 
 private:
 

@@ -39,31 +39,31 @@ void ALidar::BeginPlay()
     }
 
     /// DATA FIELDS FOR POINTCLOUD
-    TArray<ROSMessages::sensor_msgs::PointCloud2::PointField> fields;
-    ROSMessages::sensor_msgs::PointCloud2::PointField x = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    x.name = "x";
-    x.offset = 0;
-    x.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    x.count = 1;
-    ROSMessages::sensor_msgs::PointCloud2::PointField y = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    y.name = "y";
-    y.offset = 4;
-    y.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    y.count = 1;
-    ROSMessages::sensor_msgs::PointCloud2::PointField z = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    z.name = "z";
-    z.offset = 8;
-    z.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    z.count = 1;
+    pointcloud->fields.SetNum(4);
 
-    fields.Add(x);
-    fields.Add(y);
-    fields.Add(z);
+    pointcloud->fields[0].name = "x";
+    pointcloud->fields[0].offset = 0;
+    pointcloud->fields[0].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[0].count = 1;
+
+    pointcloud->fields[1].name = "y";
+    pointcloud->fields[1].offset = 4;
+    pointcloud->fields[1].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[1].count = 1;
+
+    pointcloud->fields[2].name = "z";
+    pointcloud->fields[2].offset = 8;
+    pointcloud->fields[2].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[2].count = 1;
+
+    pointcloud->fields[3].name = "intensity";
+    pointcloud->fields[3].offset = 12;
+    pointcloud->fields[3].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[3].count = 1;
 
     pointcloud->height = 1;
     pointcloud->is_dense = true;
     pointcloud->is_bigendian = false;
-    pointcloud->fields = fields;
     pointcloud->point_step = point_step;
     pointcloud->header.seq = 1;
     pointcloud->header.frame_id = "Lidar";
@@ -122,12 +122,12 @@ void ALidar::SimulateLidar(const float DeltaTime)
 
     check(ChannelCount == LaserAngles.Num());
 
-	ResetRecordedHits(ChannelCount, PointsToScanWithOneLaser); /// CLEAR DATA
-
     const float AngleDistanceOfTick = Description.RotationFrequency * Description.HorizontalFov * DeltaTime; // EXP. SYNCRHONOUS = 10 * 360 *0.10 = 360
     const float AngleDistanceOfLaserMeasure = AngleDistanceOfTick / PointsToScanWithOneLaser;                // HOW BIG IS ANGLE BETWEEN TWO POINTS
 
-    //GetWorld()->GetPhysicsScene()->GetPxScene()->lockRead();
+    ResetRecordedHits(ChannelCount, PointsToScanWithOneLaser); /// CLEAR DATA
+
+
     {
         TRACE_CPUPROFILER_EVENT_SCOPE(ParallelFor);
         ParallelFor(ChannelCount, [&](int32 idxChannel) {
@@ -148,16 +148,13 @@ void ALidar::SimulateLidar(const float DeltaTime)
             };
             });
     }
-    //GetWorld()->GetPhysicsScene()->GetPxScene()->unlockRead();
 	FTransform ActorTransf = GetTransform();
 	ComputeAndSaveDetections(ActorTransf);
-    
-    // IF ROS IS CONNECTED AND TOPIC IS VALID WE PUBLISH DATA
+  
+    // If ROS is connected and the LidarDataTopic is valid, publish the point cloud data
     if (rosInstance->bIsConnected && IsValid(LidarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
         bool didPub = LidarDataTopic->Publish(pointcloud);
     }
-
-    delete[] lidarDataByteArray;
 
     CurrentHorizontalAngle = std::fmod(CurrentHorizontalAngle + AngleDistanceOfTick, Description.HorizontalFov);
 }
@@ -167,6 +164,7 @@ void ALidar::ResetRecordedHits(uint32_t Channels, uint32_t MaxPointsPerChannel) 
     pointcloud->header.time = FROSTime::Now();
     RecordedHits.resize(Channels);
     HitLocations.Empty();
+    PointArray.clear();
 
     for (auto& hits : RecordedHits) {
         hits.clear();
@@ -181,44 +179,75 @@ void ALidar::WritePointAsync(uint32_t channel, FHitResult& detection) {
     RecordedHits[channel].emplace_back(detection);
 }
 
+float ALidar::CalculateIntensity(FHitResult& detection, const FTransform& SensorTransform) {
+    TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
+
+    // Calculate the distance between the Lidar sensor and the detection point
+    float distance = FVector::Distance(SensorTransform.GetLocation(), detection.ImpactPoint);
+
+    // Calculate the incidence angle
+    FVector detectionDirection = (detection.ImpactPoint - SensorTransform.GetLocation()).GetSafeNormal();
+    float incidenceAngle = FMath::Acos(FVector::DotProduct(detectionDirection, detection.ImpactNormal));
+
+    // Define a surface roughness factor
+    // The exact value will depend on the characteristics of the specific rock wall.
+    // This value might need adjustment for more accurate simulations.
+    float surfaceRoughnessFactor = 0.75f;
+
+    float intensity = 0.0f;
+    if (distance > 0.0f && distance <= Description.Range)
+    {
+        float distanceInMeters = distance / 100.0f; // assuming that distance is given in centimeters
+        float attenFactor = exp(-Description.AtmospAttenRate * distanceInMeters); // calculate attenuation due to atmosphere
+        intensity = (1.0f / pow(distanceInMeters, 2)) * attenFactor; // calculate intensity considering inverse square law and atmospheric attenuation
+
+        // Account for incidence angle - assume perfect diffuse reflection (Lambert's cosine law)
+        intensity *= FMath::Cos(incidenceAngle) * surfaceRoughnessFactor;
+    }
+
+    return intensity;
+}
+
+
 /// CREATE POINTCLOUD2
 void ALidar::ComputeAndSaveDetections(const FTransform& SensorTransform) {
     TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
-    TArray<float> floats;
-    int32 numberOfPoints = 0;
 
-    /// THIS NEEDS TO BE DONE BEFORE WE CAN CONVER FLOATS TO BYTES
-    /// WE GET L
+    // Loop through each channel
     for (int idxChannel = 0u; idxChannel < Description.Channels; ++idxChannel) {
+        // Loop through each recorded hit in the current channel
         for (auto& hit : RecordedHits[idxChannel]) {
+            // Add hit location to HitLocations array
             HitLocations.Add(hit.ImpactPoint);
-            FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), hit.ImpactPoint); // CONVERT HIT LOCATION FROM WORLD SPACE TO LOCAL SPACE
-            floats.Add(hitLocation.X);
-            floats.Add(hitLocation.Y);
-            floats.Add(hitLocation.Z);
-            numberOfPoints = numberOfPoints + 1; 
+
+            // Convert hit location from world space to local space         
+            FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), hit.ImpactPoint);
+
+            // Create a new FPointData object with the hit location coordinates
+            FPointData point = { hitLocation.X, hitLocation.Y, hitLocation.Z, CalculateIntensity(hit, SensorTransform)};
+
+            // Add the new point to the PointArray
+            PointArray.push_back(point);
         }
     }
 
-    lidarDataByteArray = new uint8[numberOfPoints * point_step];
-
-    for (int index = 0; index < floats.Num(); index++) {
-        float f = floats[index];
-
-        unsigned char const* p = reinterpret_cast<unsigned char const*>(&f);
-
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            lidarDataByteArray[index * 4 + i] = (uint8_t)p[i];
-        }
+    // If PointArray is empty, exit the function
+    if (PointArray.size() < 1) {
+        return;
     }
 
-    pointcloud->data_ptr = lidarDataByteArray;
-    pointcloud->width = numberOfPoints;             /// HOW MANY POINTS IN TOTAL 
-    pointcloud->row_step = numberOfPoints * point_step;     /// LENGHT OF DATA IN BYTES
+    // Create a pointer to the first element of the PointArray
+    const FPointData* PointsDataPtr = PointArray.data();
 
+    // Reinterpret the pointer to PointArray's data as a pointer to bytes and assign it to pointcloud->data_ptr
+    pointcloud->data_ptr = reinterpret_cast<uint8*>(const_cast<FPointData*>(PointsDataPtr));
+
+    // Set the width of the point cloud (number of points)
+    pointcloud->width = PointArray.size();
+
+    // Calculate the total size in bytes of the point cloud data
+    pointcloud->row_step = pointcloud->width * pointcloud->point_step;
 }
-
 /// SHOOTLASER AND RETURN TRUE IF WE HIT SOMETHING. SET HITVALUE TO HITRESULT WICH IS POINTER
 bool ALidar::ShootLaser(const float VerticalAngle, const float HorizontalAngle, FHitResult& HitResult, FCollisionQueryParams& TraceParams) const
 {
@@ -255,4 +284,3 @@ bool ALidar::ShootLaser(const float VerticalAngle, const float HorizontalAngle, 
         return false;
     }
 }
-

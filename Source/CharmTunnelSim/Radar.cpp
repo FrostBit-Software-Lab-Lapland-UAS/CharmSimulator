@@ -42,60 +42,47 @@ void ARadar::BeginPlay()
     }
 
 
-    TArray<ROSMessages::sensor_msgs::PointCloud2::PointField> fields;
-    ROSMessages::sensor_msgs::PointCloud2::PointField x = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    x.name = "x";
-    x.offset = 0;
-    x.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    x.count = 1;
+    /// DATA FIELDS FOR POINTCLOUD
+    pointcloud->fields.SetNum(7);
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField y = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    y.name = "y";
-    y.offset = 4;
-    y.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    y.count = 1;
+    pointcloud->fields[0].name = "x";
+    pointcloud->fields[0].offset = 0;
+    pointcloud->fields[0].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[0].count = 1;
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField z = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    z.name = "z";
-    z.offset = 8;
-    z.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    z.count = 1;
+    pointcloud->fields[1].name = "y";
+    pointcloud->fields[1].offset = 4;
+    pointcloud->fields[1].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[1].count = 1;
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField range = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    range.name = "Range";
-    range.offset = 12;
-    range.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    range.count = 1;
+    pointcloud->fields[2].name = "z";
+    pointcloud->fields[2].offset = 8;
+    pointcloud->fields[2].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[2].count = 1;
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField velocityField = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    velocityField.name = "Velocity";
-    velocityField.offset = 16;
-    velocityField.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    velocityField.count = 1;
+    pointcloud->fields[3].name = "Range";
+    pointcloud->fields[3].offset = 12;
+    pointcloud->fields[3].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[3].count = 1;
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField azimuthAngle = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    azimuthAngle.name = "AzimuthAngle";
-    azimuthAngle.offset = 20;
-    azimuthAngle.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    azimuthAngle.count = 1;
+    pointcloud->fields[4].name = "Velocity";
+    pointcloud->fields[4].offset = 16;
+    pointcloud->fields[4].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[4].count = 1;
 
-    ROSMessages::sensor_msgs::PointCloud2::PointField elevationAngle = ROSMessages::sensor_msgs::PointCloud2::PointField();
-    elevationAngle.name = "ElevationAngle";
-    elevationAngle.offset = 24;
-    elevationAngle.datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
-    elevationAngle.count = 1;
+    pointcloud->fields[5].name = "AzimuthAngle";
+    pointcloud->fields[5].offset = 20;
+    pointcloud->fields[5].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[5].count = 1;
 
-    fields.Add(x);
-    fields.Add(y);
-    fields.Add(z);
-    fields.Add(range);
-    fields.Add(velocityField);
-    fields.Add(azimuthAngle);
-    fields.Add(elevationAngle);
+    pointcloud->fields[6].name = "ElevationAngle";
+    pointcloud->fields[6].offset = 24;
+    pointcloud->fields[6].datatype = ROSMessages::sensor_msgs::PointCloud2::PointField::EType::FLOAT32;
+    pointcloud->fields[6].count = 1;
+
     pointcloud->header.seq = 1;
     pointcloud->header.frame_id = "Radar";
     pointcloud->is_bigendian = false;
-    pointcloud->fields = fields;
     pointcloud->point_step = point_step;
     pointcloud->height = 1;
     pointcloud->is_dense = true;
@@ -152,14 +139,14 @@ void ARadar::CalculateCurrentVelocity(const float DeltaTime)
 
 void ARadar::SendLineTraces(float DeltaTime)
 {
-    TRACE_CPUPROFILER_EVENT_SCOPE(ARadar::SendLineTraces);    
+    TRACE_CPUPROFILER_EVENT_SCOPE(ARadar::SendLineTraces);
 
     constexpr float TO_METERS = 1e-2;
     const FTransform& ActorTransform = GetActorTransform();
     const FRotator& TransformRotator = ActorTransform.Rotator();
     const FVector& RadarLocation = GetActorLocation();
     const FVector ForwardVector = GetActorForwardVector();
-   // const FVector& ForwardVector = GetActorForwardVector();
+    // const FVector& ForwardVector = GetActorForwardVector();
     const FVector TransformXAxis = ActorTransform.GetUnitAxis(EAxis::X);
     const FVector TransformYAxis = ActorTransform.GetUnitAxis(EAxis::Y);
     const FVector TransformZAxis = ActorTransform.GetUnitAxis(EAxis::Z);
@@ -176,14 +163,14 @@ void ARadar::SendLineTraces(float DeltaTime)
     }
 
     HitLocations.Empty();
-    Rays.Empty();
-    Rays.Init(RayData(), NumPoints);
+    RayArray.clear();
+    RayArray.resize(NumPoints);
 
     FCriticalSection Mutex;
-    //GetWorld()->GetPhysicsScene()->GetPxScene()->lockRead();
+
     {
         TRACE_CPUPROFILER_EVENT_SCOPE(ParallelFor);
-        ParallelFor(NumPoints, [&](int32 idx) 
+        ParallelFor(NumPoints, [&](int32 idx)
             {
                 TRACE_CPUPROFILER_EVENT_SCOPE(ParallelForTask);
                 FHitResult OutHit(ForceInit);
@@ -205,98 +192,36 @@ void ARadar::SendLineTraces(float DeltaTime)
 
                 const TWeakObjectPtr<AActor> HittedActor = OutHit.GetActor();
                 if (OutHit.bBlockingHit && HittedActor.Get()) {
-                    //FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), OutHit.ImpactPoint);
-                    Rays[idx].didHit = true;
-                    Rays[idx].hitLocation = OutHit.ImpactPoint;
-                    Rays[idx].RelativeVelocity = CalculateRelativeVelocity(OutHit, RadarLocation);
-                    Rays[idx].AzimuthAndElevation = FMath::GetAzimuthAndElevation(
+                    FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), OutHit.ImpactPoint);
+                    FVector2D AzimuthAndElevation = FMath::GetAzimuthAndElevation(
                         (EndLocation - RadarLocation).GetSafeNormal() * Range,
                         TransformXAxis,
                         TransformYAxis,
                         TransformZAxis
                     );
-
-                    Rays[idx].Distance = OutHit.Distance * TO_METERS;
+                    FRayData ray = { hitLocation.X, hitLocation.Y, hitLocation.Z,
+                        OutHit.Distance * TO_METERS, CalculateRelativeVelocity(OutHit, RadarLocation),
+                        AzimuthAndElevation.X, AzimuthAndElevation.Y };
+                    RayArray[idx] = ray;
                 }
             });
     }
-    //GetWorld()->GetPhysicsScene()->GetPxScene()->unlockRead();
-    for (int i = (Rays.Num() - 1); i >= 0; i--) {
-        if (Rays[i].didHit == false) {
-            Rays.RemoveAt(i);
-        }
+
+    if (RayArray.size() < 1) {
+        return;
     }
 
-    
+    const FRayData* RaysDataPtr = RayArray.data();
+    pointcloud->data_ptr = reinterpret_cast<uint8*>(const_cast<FRayData*>(RaysDataPtr));
 
-    uint8* uArray = new uint8[Rays.Num() * point_step];
-
-
-
-    for (int index = 0; index < Rays.Num(); index++) {
-        HitLocations.Add(Rays[index].hitLocation); // This array can be used to visualize 
-        FVector hitloc = UKismetMathLibrary::TransformLocation(this->GetTransform(), Rays[index].hitLocation); // Change transform from world space to local space
-
-        float xLocation = hitloc.X;
-        float yLocation = hitloc.Y;
-        float zLocation = hitloc.Z;
-        float distance = Rays[index].Distance;
-        float velocity = Rays[index].RelativeVelocity;
-        float azimuth = Rays[index].AzimuthAndElevation.X;
-        float elevation = Rays[index].AzimuthAndElevation.Y;
-
-        //FVector hit = FVector(Rays[index].hitLocation.X, Rays[index].hitLocation.Y, Rays[index].hitLocation.Z);
-
-        unsigned char const* xChar = reinterpret_cast<unsigned char const*>(&xLocation);
-        unsigned char const* yChar = reinterpret_cast<unsigned char const*>(&yLocation);
-        unsigned char const* zChar = reinterpret_cast<unsigned char const*>(&zLocation);
-        unsigned char const* dChar = reinterpret_cast<unsigned char const*>(&distance);
-        unsigned char const* vChar = reinterpret_cast<unsigned char const*>(&velocity);
-        unsigned char const* aChar= reinterpret_cast<unsigned char const*>(&azimuth);
-        unsigned char const* eChar = reinterpret_cast<unsigned char const*>(&elevation);
-
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i] = (uint8_t)xChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 4] = (uint8_t)yChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 8] = (uint8_t)zChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 12] = (uint8_t)dChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 16] = (uint8_t)vChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 20] = (uint8_t)aChar[i];
-        }
-        for (std::size_t i = 0; i != sizeof(float); ++i)
-        {
-            uArray[index * 28 + i + 24] = (uint8_t)eChar[i];
-        }
-    }
-
-
+    pointcloud->width = RayArray.size();    /// HOW MANY POINTS IN TOTAL 
+    pointcloud->row_step = pointcloud->width * pointcloud->point_step;  /// LENGHT OF DATA IN BYTES
     pointcloud->header.time = FROSTime::Now();
-    pointcloud->data_ptr = uArray;
-    pointcloud->width = Rays.Num();                     /// HOW MANY POINTS IN TOTAL 
-    pointcloud->row_step = Rays.Num() * point_step;     /// LENGHT OF DATA IN BYTES
 
     // IF ROS IS CONNECTED AND TOPIC IS VALID WE PUBLISH DATA
     if (rosInstance->bIsConnected && IsValid(RadarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
         RadarDataTopic->Publish(pointcloud);
     }
-
-    delete[] uArray;
 }
 
 float ARadar::CalculateRelativeVelocity(const FHitResult& OutHit, const FVector& RadarLocation)

@@ -120,8 +120,10 @@ void ACamera::CaptureAndPublishImage()
 			CaptureLambda(RHICmdList);
 		});
 
-	// Process and publish the image
-	ProcessAndPublishImage();
+	if (ReadBufferData.Num() > 0) {
+		// Process and publish the image
+		ProcessAndPublishImage();
+	}
 }
 
 void ACamera::ProcessAndPublishImage()
