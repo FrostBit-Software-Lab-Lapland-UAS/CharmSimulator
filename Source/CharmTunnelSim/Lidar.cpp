@@ -13,6 +13,7 @@
 #include "Misc/Variant.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/DefaultValueHelper.h"
 
 
 // Sets default values
@@ -74,6 +75,8 @@ void ALidar::BeginPlay()
 void ALidar::Set(const FLidarDescription& LidarDescription)
 {
     Description = LidarDescription;
+    numberOfPointsPerChannel = Description.PointsPerSecond / Description.RotationFrequency / Description.Channels; // How many points are there in one channel in full rotation
+    ResetRecordedHits(Description.Channels);
     CreateLasers();
     PointsPerChannel.resize(Description.Channels);
 }
@@ -112,7 +115,7 @@ void ALidar::SimulateLidar(const float DeltaTime)
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(ALidar::SimulateLidar);
     const uint32 ChannelCount = Description.Channels;
-    const uint32 PointsToScanWithOneLaser = FMath::RoundHalfFromZero(Description.PointsPerSecond * DeltaTime / float(ChannelCount));
+    uint32 PointsToScanWithOneLaser = FMath::RoundHalfFromZero(Description.PointsPerSecond * DeltaTime / float(ChannelCount));
 
     if (PointsToScanWithOneLaser <= 0)
     {
@@ -122,22 +125,22 @@ void ALidar::SimulateLidar(const float DeltaTime)
 
     check(ChannelCount == LaserAngles.Num());
 
-    const float AngleDistanceOfTick = Description.RotationFrequency * Description.HorizontalFov * DeltaTime; // EXP. SYNCRHONOUS = 10 * 360 *0.10 = 360
-    const float AngleDistanceOfLaserMeasure = AngleDistanceOfTick / PointsToScanWithOneLaser;                // HOW BIG IS ANGLE BETWEEN TWO POINTS
+    const float AngleDistanceOfTick = Description.RotationFrequency * Description.HorizontalFov * DeltaTime; 
+    const float AngleDistanceOfLaserMeasure = AngleDistanceOfTick / PointsToScanWithOneLaser;                
 
-    ResetRecordedHits(ChannelCount, PointsToScanWithOneLaser); /// CLEAR DATA
+    int pointsToAdd = 0;
 
+    // If we are end of current rotation
+    if (pointsLeftForRotation < PointsToScanWithOneLaser) {
+        pointsToAdd = pointsLeftForRotation;
 
-    {
-        TRACE_CPUPROFILER_EVENT_SCOPE(ParallelFor);
         ParallelFor(ChannelCount, [&](int32 idxChannel) {
-            TRACE_CPUPROFILER_EVENT_SCOPE(ParallelForTask);
 
             FCollisionQueryParams TraceParams = FCollisionQueryParams(FName(TEXT("Laser_Trace")), true, this);
             TraceParams.bTraceComplex = true;
             TraceParams.bReturnPhysicalMaterial = false;
 
-            for (auto idxPtsOneLaser = 0u; idxPtsOneLaser < PointsToScanWithOneLaser; idxPtsOneLaser++) {
+            for (auto idxPtsOneLaser = 0u; idxPtsOneLaser < pointsLeftForRotation; idxPtsOneLaser++) {
                 FHitResult HitResult;
                 const float VertAngle = LaserAngles[idxChannel];
                 const float HorizAngle = std::fmod(CurrentHorizontalAngle + AngleDistanceOfLaserMeasure * idxPtsOneLaser, Description.HorizontalFov) - Description.HorizontalFov / 2;
@@ -146,72 +149,104 @@ void ALidar::SimulateLidar(const float DeltaTime)
                     WritePointAsync(idxChannel, HitResult);
                 }
             };
-            });
+            }
+        );
+
+        FTransform ActorTransf = GetTransform();
+        ComputeAndSaveDetections(ActorTransf);
+         // If ROS is connected and the LidarDataTopic is valid, publish the point cloud data
+        if (rosInstance->bIsConnected && IsValid(LidarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
+            LidarDataTopic->Publish(pointcloud);
+        }
+
+        PointsToScanWithOneLaser -= pointsLeftForRotation;
+        ResetRecordedHits(ChannelCount); /// CLEAR DATA
     }
-	FTransform ActorTransf = GetTransform();
-	ComputeAndSaveDetections(ActorTransf);
-  
-    // If ROS is connected and the LidarDataTopic is valid, publish the point cloud data
-    if (rosInstance->bIsConnected && IsValid(LidarDataTopic) && sizeof(pointcloud->data_ptr) > 0) {
-        bool didPub = LidarDataTopic->Publish(pointcloud);
+
+    if (PointsToScanWithOneLaser > 0)
+    {
+        ParallelFor(ChannelCount, [&](int32 idxChannel) {
+
+            FCollisionQueryParams TraceParams = FCollisionQueryParams(FName(TEXT("Laser_Trace")), true, this);
+            TraceParams.bTraceComplex = true;
+            TraceParams.bReturnPhysicalMaterial = false;
+
+            for (auto idxPtsOneLaser = 0u; idxPtsOneLaser < PointsToScanWithOneLaser; idxPtsOneLaser++) {
+                FHitResult HitResult;
+                const float VertAngle = LaserAngles[idxChannel];
+                const float HorizAngle = std::fmod(CurrentHorizontalAngle + AngleDistanceOfLaserMeasure * (idxPtsOneLaser + pointsToAdd), Description.HorizontalFov) - Description.HorizontalFov / 2;
+
+                if (ShootLaser(VertAngle, HorizAngle, HitResult, TraceParams)) {
+                    WritePointAsync(idxChannel, HitResult);
+                }
+            };
+            }
+        );
+        pointsLeftForRotation -= PointsToScanWithOneLaser;
     }
 
     CurrentHorizontalAngle = std::fmod(CurrentHorizontalAngle + AngleDistanceOfTick, Description.HorizontalFov);
 }
 
-void ALidar::ResetRecordedHits(uint32_t Channels, uint32_t MaxPointsPerChannel) {
+void ALidar::ResetRecordedHits(uint32_t Channels) {
     
     pointcloud->header.time = FROSTime::Now();
     RecordedHits.resize(Channels);
-    HitLocations.Empty();
     PointArray.clear();
+    pointsLeftForRotation = numberOfPointsPerChannel;
 
     for (auto& hits : RecordedHits) {
         hits.clear();
-        hits.reserve(MaxPointsPerChannel);
+        hits.reserve(numberOfPointsPerChannel);
     }
 }
 
 /// SAVE HIT RESULT TO LASER SLOT
 void ALidar::WritePointAsync(uint32_t channel, FHitResult& detection) {
     TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
-    //DEBUG_ASSERT(GetChannelCount() > channel);
     RecordedHits[channel].emplace_back(detection);
 }
 
 float ALidar::CalculateIntensity(FHitResult& detection, const FTransform& SensorTransform) {
-    TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
-
     // Calculate the distance between the Lidar sensor and the detection point
     float distance = FVector::Distance(SensorTransform.GetLocation(), detection.ImpactPoint);
 
     // Calculate the incidence angle
     FVector detectionDirection = (detection.ImpactPoint - SensorTransform.GetLocation()).GetSafeNormal();
-    float incidenceAngle = FMath::Acos(FVector::DotProduct(detectionDirection, detection.ImpactNormal));
+    float dotProduct = FVector::DotProduct(detectionDirection, detection.ImpactNormal);
+    dotProduct = FMath::Clamp(dotProduct, -1.0f, 1.0f);
+    float incidenceAngle = FMath::Acos(dotProduct);
 
     // Define a surface roughness factor
-    // The exact value will depend on the characteristics of the specific rock wall.
-    // This value might need adjustment for more accurate simulations.
-    float surfaceRoughnessFactor = 0.75f;
+    // Check if the hitted actor has any tags and the first tag can be converted to a float
+    AActor* hittedActor = detection.GetActor();
+    float surfaceRoughnessFactor = 0.75f; // Default value
+    if (hittedActor && hittedActor->Tags.Num() > 0) {
+        FString firstTag = hittedActor->Tags[0].ToString();
+        if (FDefaultValueHelper::ParseFloat(firstTag, surfaceRoughnessFactor) == false) {
+            // Failed to parse the first tag to a float, you may want to handle this case.
+        }
+    }
 
     float intensity = 0.0f;
     if (distance > 0.0f && distance <= Description.Range)
     {
         float distanceInMeters = distance / 100.0f; // assuming that distance is given in centimeters
         float attenFactor = exp(-Description.AtmospAttenRate * distanceInMeters); // calculate attenuation due to atmosphere
-        intensity = (1.0f / pow(distanceInMeters, 2)) * attenFactor; // calculate intensity considering inverse square law and atmospheric attenuation
-
-        // Account for incidence angle - assume perfect diffuse reflection (Lambert's cosine law)
-        intensity *= FMath::Cos(incidenceAngle) * surfaceRoughnessFactor;
+        intensity = attenFactor;
+        // Account for incidence angle and furface roughness
+        intensity *= FMath::Abs(FMath::Cos(incidenceAngle)) * surfaceRoughnessFactor; // Use absolute value to avoid negatives
     }
 
     return intensity;
 }
 
 
+
 /// CREATE POINTCLOUD2
 void ALidar::ComputeAndSaveDetections(const FTransform& SensorTransform) {
-    TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
+    // Clear previous pointcloud data
+    HitLocations.Empty();
 
     // Loop through each channel
     for (int idxChannel = 0u; idxChannel < Description.Channels; ++idxChannel) {

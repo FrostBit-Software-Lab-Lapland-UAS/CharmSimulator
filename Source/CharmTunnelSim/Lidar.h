@@ -58,7 +58,7 @@ protected:
 	bool ShootLaser(const float VerticalAngle, float HorizontalAngle, FHitResult& HitResult, FCollisionQueryParams& TraceParams) const;
 
 	/// Clear the recorded data structure
-	void ResetRecordedHits(uint32_t Channels, uint32_t MaxPointsPerChannel);
+	void ResetRecordedHits(uint32_t Channels);
 
 	/// Compute all raw detection information
 	void ComputeRawDetection(const FHitResult& HitInfo, const FTransform& SensorTransf) const;
@@ -86,6 +86,8 @@ protected:
 	TArray<float> LaserAngles;
 
 	int tickCount = 0;
+	int numberOfPointsPerChannel = 0;
+	uint32 pointsLeftForRotation = 0;
 
 	std::vector<std::vector<FHitResult>> RecordedHits;
 	std::vector<FPointData> PointArray;

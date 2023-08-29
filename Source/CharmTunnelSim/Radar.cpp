@@ -168,44 +168,41 @@ void ARadar::SendLineTraces(float DeltaTime)
 
     FCriticalSection Mutex;
 
-    {
-        TRACE_CPUPROFILER_EVENT_SCOPE(ParallelFor);
-        ParallelFor(NumPoints, [&](int32 idx)
-            {
-                TRACE_CPUPROFILER_EVENT_SCOPE(ParallelForTask);
-                FHitResult OutHit(ForceInit);
-                FRotator rot;
-                rot.Pitch = VerticalFOV * 0.5f * FMath::RandRange(-1.0, 1.0);
-                rot.Yaw = HorizontalFOV * 0.5f * FMath::RandRange(-1.0, 1.0);
-                rot.Roll = 0.0;
+    ParallelFor(NumPoints, [&](int32 idx)
+        {
+            FHitResult OutHit(ForceInit);
+            FRotator rot;
+            rot.Pitch = VerticalFOV * 0.5f * FMath::RandRange(-1.0, 1.0);
+            rot.Yaw = HorizontalFOV * 0.5f * FMath::RandRange(-1.0, 1.0);
+            rot.Roll = 0.0;
 
-                const FVector EndLocation = RadarLocation + rot.RotateVector({ ForwardVector }) * Range;
+            const FVector EndLocation = RadarLocation + rot.RotateVector({ ForwardVector }) * Range;
 
-                GetWorld()->LineTraceSingleByChannel(
-                    OutHit,
-                    RadarLocation,
-                    EndLocation,
-                    ECC_GameTraceChannel5, //This is our Laser_trace channel
-                    TraceParams,
-                    FCollisionResponseParams::DefaultResponseParam
+            GetWorld()->LineTraceSingleByChannel(
+                OutHit,
+                RadarLocation,
+                EndLocation,
+                ECC_GameTraceChannel5, //This is our Laser_trace channel
+                TraceParams,
+                FCollisionResponseParams::DefaultResponseParam
+            );
+
+            const TWeakObjectPtr<AActor> HittedActor = OutHit.GetActor();
+            if (OutHit.bBlockingHit && HittedActor.Get()) {
+                FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), OutHit.ImpactPoint);
+                hitLocation = GetActorRotation().RotateVector(hitLocation);
+                FVector2D AzimuthAndElevation = FMath::GetAzimuthAndElevation(
+                    (EndLocation - RadarLocation).GetSafeNormal() * Range,
+                    TransformXAxis,
+                    TransformYAxis,
+                    TransformZAxis
                 );
-
-                const TWeakObjectPtr<AActor> HittedActor = OutHit.GetActor();
-                if (OutHit.bBlockingHit && HittedActor.Get()) {
-                    FVector hitLocation = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), OutHit.ImpactPoint);
-                    FVector2D AzimuthAndElevation = FMath::GetAzimuthAndElevation(
-                        (EndLocation - RadarLocation).GetSafeNormal() * Range,
-                        TransformXAxis,
-                        TransformYAxis,
-                        TransformZAxis
-                    );
-                    FRayData ray = { hitLocation.X, hitLocation.Y, hitLocation.Z,
-                        OutHit.Distance * TO_METERS, CalculateRelativeVelocity(OutHit, RadarLocation),
-                        AzimuthAndElevation.X, AzimuthAndElevation.Y };
-                    RayArray[idx] = ray;
-                }
-            });
-    }
+                FRayData ray = { hitLocation.X, hitLocation.Y, hitLocation.Z,
+                    OutHit.Distance * TO_METERS, CalculateRelativeVelocity(OutHit, RadarLocation),
+                    AzimuthAndElevation.X, AzimuthAndElevation.Y };
+                RayArray[idx] = ray;
+            }
+        });
 
     if (RayArray.size() < 1) {
         return;
