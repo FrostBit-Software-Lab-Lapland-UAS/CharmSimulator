@@ -64,8 +64,6 @@ public:
 	float floorDeformation;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deformation")
 	float wallDeformation;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deformation")
-	UTextureRenderTarget2D* wallDeformRenderTarget;
 	float noiseTextureXresolution = 500.0f;
 	UFUNCTION(BlueprintImplementableEvent, Category = "Deformation")
 	float GetPixelValue(int32 x, int32 y);
@@ -76,47 +74,46 @@ public:
 	float widthScale;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	float heightScale;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector2D localTunnelScale;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector2D surfaceVariation;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
-	int32 pointsInWidth = 25;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
-	int32 pointsInHeight = 20;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
-	int32 splineLoopAdjustment = 2;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInRoof = 25;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInGround = 27;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInWalls = 20;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 loopAroundTunnelLastIndex = 91;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector> wallVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<int32> wallTriangles;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector2D> wallUV;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector> wallNormals;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FProcMeshTangent> wallTangents;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector> groundVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<int32> groundTriangles;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector2D> groundUV;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector> groundNormals;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FProcMeshTangent> groundTangents;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	float maxDeform = 100.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	bool isEndConnected;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	AProceduralTunnel* connectedActor;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	AProceduralIntersection* parentIntersection;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	AProceduralTunnel* parentsParentTunnel;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	AProceduralTunnel* rightSideTunnel;
@@ -127,47 +124,29 @@ public:
 	TArray<UProceduralMeshComponent*> TunnelMeshes;
 
 	// FIST VERTICE DATA
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstVertices")
 	TArray<FVector> firstFloorVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstVertices")
 	TArray<FVector> firstRightVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstVertices")
 	TArray<FVector> firstRoofVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstVertices")
 	TArray<FVector> firstLeftVertices;
 
 	// LAST VERTICE DATA
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LastVertices")
 	TArray<FVector> lastFloorVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LastVertices")
 	TArray<FVector> lastRightVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LastVertices")
 	TArray<FVector> lastRoofVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LastVertices")
 	TArray<FVector> lastLeftVertices;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LastVertices")
 	TArray<FVector> allFloorVertices;
 
 	// LOOP VARIABLES
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 meshLoopFirstIndex;
+	int32 indexOfLastMesh;
+	int32 indexOfCurrentMesh;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 meshLoopLastIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 meshLoopCurrentIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 pointCapLoopLastIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 pointCapLoopCurrentIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 loopAroundTunnelLastIndex = 92;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
+	int32 stepCountToMakeCurrentMesh;
+	int32 stepIndexInsideMesh;
 	int32 loopAroundTunnelCurrentIndex;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 surfaceIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 arrayIndex;
+	int32 verticeIndex;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	float groundVerticeSize;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
@@ -178,24 +157,15 @@ public:
 	TArray<FMeshSectionEnd> meshEnds;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FMeshSectionEnd> meshEndsBeforeIntersection;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 forwardStepInDeformTexture;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector firstVertice;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector latestVertice;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector rightVector;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector forwardVector;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector startLocationOnSpline;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<float> deformValues;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	UCurveFloat* deformCurve;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	UCurveFloat* rotateCurve;
 
 	
 	float tunnelRoundValue = 100.0f;
@@ -203,24 +173,16 @@ public:
 	int32 reCreateMeshCount;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 meshInRework = -1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 countOfMeshesToRemake;
 	
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TEnumAsByte<TunnelType> tunnelType = TunnelType::DefaultTunnel;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TEnumAsByte<IntersectionType> intersectionType = IntersectionType::Right;
 
-	/////////////test stuff
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TEST", meta = (AllowPrivateAccess = "true"))
-	UStaticMesh* cube;
 
-
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	// Get closest tunnel end
+
 	UFUNCTION(BlueprintCallable)
 	void SnapToEndOfOtherSpline();
 	UFUNCTION(BlueprintCallable)
@@ -230,54 +192,54 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType);
 	UFUNCTION(BlueprintCallable)
-	void SetValues(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load);
+	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load);
 
 	void AddOrRemoveSplinePoints(bool interSectionAdded);
 
 	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType);
-	void SetupSplineLocations();
+	void CalculateStepsInTunnelSection();
 	void ResetCurrentMeshEndData();
 	void GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
 	void UsePreviousEndVerticesData(bool isSinglePointUpdate);
 	void GenerateVerticesForCurrentLoop(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
 
 	int32 GetSurfaceIndex();
-	int32 CalculateArrayIndex();
+	int32 GetIndexOfVertice();
 
 	bool GetIsFirstLoopAround();
 	bool usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate);
 
-
+	// Functions used to get intersections child tunnels start vertices to align with intersection
 	FVector RightTunnelStart();
 	FVector LeftTunnelStart();
 	FVector StraightTunnelStart();
 
-	FVector GetFloorVertice();
-	FVector GetRightVertice(bool isFirstLoopARound, bool isIntersectionAdded);
-	FVector GetRoofVertice();
-	FVector GetLeftVertice(bool isFirstLoopARound, bool isIntersectionAdded);
+	// Basic functions to get vertice locations on different surfaces
+	FVector GetVerticeOnGround();
+	FVector GetVerticeOnRightWall(bool isFirstLoopARound, bool isIntersectionAdded);
+	FVector GetVerticeOnRoof();
+	FVector GetVerticeOnLeftWall(bool isFirstLoopARound, bool isIntersectionAdded);
 
 	void InitializeStartVectorRightVectorAndValueInTexture();
 	void ClearArrays();
 
 	FVector GetVerticeForConnectedTunnel();
-	FVector GetVerticeForIntersectionAddedTunnel();
-	FVector GetLatestVerticeForIntersectionContinuationTunnels();
-	bool IsConnectedToOtherTunnel(bool isSinglePointUpdate);
-	bool IsIntersectionAddedToThisTunnel(bool isIntersectionAdded, int32 lastIndex);
+	FVector GetVerticeForStartOfChildTunnel();
+	bool IsOnTheEndOfTunnel();
 	FVector GetVerticeForDefaultTunnel(bool isFirstLoopAround, bool isIntersectionAdded);
 	FVector AdjustLatestVerticeForOverlap(FVector latestVertice, int32 surfaceIndex);
 	void SaveFirstVerticeIfNeeded(FVector latestVertice);
 	void AddCreatedVerticeToArrays(FVector latestVertice, int32 surfaceIndex);
 	bool IsFirstLoopOfWholeTunnel();
 	void SaveFirstLoopVerticeData(int32 surfaceIndex, FVector latestVertice);
-	bool IsEndOfCurrentMesh();
+	bool IsOnTheEndOfCurrentMeshSection();
 	void SaveEndMeshVerticeData(int32 surfaceIndex, FVector latestVertice);
-	void AddUVCoordinates(int32 surfaceIndex, int32 pointCapLoopCurrentIndex, int32 pointCapLoopLastIndex, int32 loopAroundTunnelCurrentIndex);
+	void AddUVCoordinates(int32 surfaceIndex, int32 stepIndexInsideMesh, int32 stepCountToMakeCurrentMesh, int32 loopAroundTunnelCurrentIndex);
 
 	UFUNCTION(BlueprintCallable)
 	void DestroyLastMesh();
 
+	// Tunnel foundation functions
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTriangles();
 	UFUNCTION(BlueprintImplementableEvent)
