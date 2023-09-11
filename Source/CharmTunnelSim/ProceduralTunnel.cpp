@@ -700,29 +700,21 @@ FVector AProceduralTunnel::RightTunnelStart()
 	{
 	case 0:
 		vertice = parentIntersection->lastRightFloorVertices[parentIntersection->lastRightFloorVertices.Num() - (1 + verticeIndex)];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
 		vertice = parentsParentTunnel->lastRightVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentsParentTunnel->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		break;
 	case 2:
 		vertice = parentIntersection->lastRightRoofVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 3:
 		if(parentIntersection->intersectionType == IntersectionType::RightLeft)
 		{
 			vertice = parentIntersection->lastRightWallVertices[verticeIndex];
-			vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 		else 
@@ -744,17 +736,13 @@ FVector AProceduralTunnel::LeftTunnelStart()
 	{
 	case 0:
 		vertice = parentIntersection->lastLeftFloorVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
 		if(parentIntersection->intersectionType == IntersectionType::RightLeft)
 		{
 			vertice = parentIntersection->lastLeftWallVertices[parentIntersection->lastLeftWallVertices.Num() - (1 + verticeIndex)];
-			vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 		else 
@@ -764,20 +752,22 @@ FVector AProceduralTunnel::LeftTunnelStart()
 		}
 	case 2:
 		vertice = parentIntersection->lastLeftRoofVertices[parentIntersection->lastLeftRoofVertices.Num() - (1 + verticeIndex)];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 3:
 		vertice = parentsParentTunnel->lastLeftVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentsParentTunnel->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		break;
 	default:
 		return FVector(0,0,0);
 		break;
 	}
+}
+
+FVector AProceduralTunnel::TransformVerticeToLocalSpace(AActor* actorFrom, FVector vector) {
+	vector = UKismetMathLibrary::TransformLocation(actorFrom->GetTransform(), vector); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
+	vector = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vector);
+	return vector;
 }
 
 // Get vertices for intersections child tunnel pointing forward
@@ -788,48 +778,36 @@ FVector AProceduralTunnel::StraightTunnelStart()
 	{
 	case 0:
 		vertice = parentIntersection->lastStraightFloorVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
 		if(IsValid(rightSideTunnel))
 		{
 			vertice = rightSideTunnel->firstLeftVertices[rightSideTunnel->firstLeftVertices.Num() - (1 + verticeIndex)];
-			vertice = UKismetMathLibrary::TransformLocation(rightSideTunnel->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(rightSideTunnel, vertice);
 			break;
 		} 
 		else
 		{
 			vertice = parentIntersection->lastRightWallVertices[verticeIndex];
-			vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 	case 2:
 		vertice = parentIntersection->lastStraightRoofVertices[verticeIndex];
-		vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-		vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-		return vertice;
+		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 3:
 		if (IsValid(leftSideTunnel))
 		{
 			vertice = leftSideTunnel->firstRightVertices[leftSideTunnel->firstRightVertices.Num() - (1 + verticeIndex)];
-			vertice = UKismetMathLibrary::TransformLocation(leftSideTunnel->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(leftSideTunnel, vertice);
 			break;
 		} 
 		else 
 		{
 			vertice = parentIntersection->lastLeftWallVertices[verticeIndex];
-			vertice = UKismetMathLibrary::TransformLocation(parentIntersection->GetTransform(), vertice); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-			vertice = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vertice);
-			return vertice;
+			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 	default:
@@ -896,9 +874,16 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 
 	// Check if we need to rotate the starting position to align with the intersection.
 	bool isUnderFiveSteps = stepIndexInsideMesh <= 4;
+	bool isStraightTunnelAfterLeftIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Left;
+	bool isLeftTunnelAfterRightLeftIntersection = tunnelType == TunnelType::LeftTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
 	int32 defaultSplinePointCount = 2; // When tunnel is added it has 2 spline points as default
 	bool isFirstMesh = SplineComponent->GetNumberOfSplinePoints() - indexOfCurrentMesh - defaultSplinePointCount == 0; // This should be 2 - 0 - 2 = 0
-	if ((tunnelType != TunnelType::DefaultTunnel && isUnderFiveSteps && (isFirstMesh || TunnelMeshes.Num() == 0)))
+	
+	if (tunnelType != TunnelType::DefaultTunnel && 
+		isUnderFiveSteps && 
+		!isStraightTunnelAfterLeftIntersection &&
+		!isLeftTunnelAfterRightLeftIntersection &&
+		(isFirstMesh || TunnelMeshes.Num() == 0))
 	{
 		isEndOrStar = true;
 		float rotateAmount = 0.0f;
@@ -926,7 +911,13 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	}
 	
 	// Check if we need to rotate the end right wall vertices to align with the continuation tunnel of the intersection.
-	if (indexOfLastMesh == indexOfCurrentMesh && stepIndexInsideMesh <= stepCountToMakeCurrentMesh && stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && isIntersectionAdded && (intersectionType == IntersectionType::Right || intersectionType == IntersectionType::All || intersectionType == IntersectionType::RightLeft))
+	if (indexOfLastMesh == indexOfCurrentMesh && 
+		stepIndexInsideMesh <= stepCountToMakeCurrentMesh && 
+		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && 
+		isIntersectionAdded && 
+		(intersectionType == IntersectionType::Right || 
+			intersectionType == IntersectionType::All || 
+			intersectionType == IntersectionType::RightLeft))
 	{
 		isEndOrStar = true;
 		float rotateAmount = 0.0f;
@@ -1041,8 +1032,14 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 		wVerticeSize = parentIntersection->wallVerticeSize;
 	}
 
+	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
+	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
+
 	// Rotate start of wall vertices to align with parent of intersection.
-	if ((tunnelType != TunnelType::DefaultTunnel && stepIndexInsideMesh <= 4 && ((SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0)))
+	if (tunnelType != TunnelType::DefaultTunnel && stepIndexInsideMesh <= 4 && 
+		!isStraightTunnelAfterRightIntersection &&
+		!isRightTunnelAfterRightLeftIntersection &&
+		((SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0))
 	{
 		if ((tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel)
 		{
@@ -1079,8 +1076,13 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	}
 
 	// Rotate the end right wall vertices to round up with continuation tunnel of intersection, if applicable.
-	if (indexOfLastMesh == indexOfCurrentMesh && stepIndexInsideMesh <= stepCountToMakeCurrentMesh && stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && isIntersectionAdded &&
-		(intersectionType == IntersectionType::Left || intersectionType == IntersectionType::All || intersectionType == IntersectionType::RightLeft))
+	if (indexOfLastMesh == indexOfCurrentMesh && 
+		stepIndexInsideMesh <= stepCountToMakeCurrentMesh && 
+		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && 
+		isIntersectionAdded &&
+		(intersectionType == IntersectionType::Left || 
+			intersectionType == IntersectionType::All ||
+			intersectionType == IntersectionType::RightLeft))
 	{
 		isEndOrStar = true;
 
@@ -1179,18 +1181,17 @@ bool AProceduralTunnel::GetIsFirstLoopAround()
 // 0 = Floor, 1 = Right, 2 = Roof, 3 = Left
 int32 AProceduralTunnel::GetSurfaceIndex() 
 {
-	// If under 27
 	if(loopAroundTunnelCurrentIndex < pointsInGround) {
 		return 0;
-	} // If under 47
+	} 
 	else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInWalls)
 	{
 		return 1;
-	} // If under 72
+	}
 	else if (loopAroundTunnelCurrentIndex < pointsInRoof + pointsInGround + pointsInWalls)
 	{
 		return 2;
-	} // 72 -> 91 including start and end
+	}
 	else 
 	{
 		return 3;

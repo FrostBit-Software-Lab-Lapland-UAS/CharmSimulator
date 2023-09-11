@@ -213,6 +213,7 @@ public:
 	FVector RightTunnelStart();
 	FVector LeftTunnelStart();
 	FVector StraightTunnelStart();
+	FVector TransformVerticeToLocalSpace(AActor* actorFrom, FVector vector);
 
 	// Basic functions to get vertice locations on different surfaces
 	FVector GetVerticeOnGround();

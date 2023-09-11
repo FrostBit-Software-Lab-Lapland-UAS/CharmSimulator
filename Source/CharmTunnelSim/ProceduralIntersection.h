@@ -66,12 +66,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	float groundVerticeSize;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 pointsInWidth = 25;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 pointsInHeight = 20;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 pointAdjustment = 2;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector> wallVertices;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector> groundVertices;
@@ -80,18 +74,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector2D> groundUV;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 loopAroundTunnelLastIndex;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector latestVertice;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 surfaceIndex;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	int32 forwarLoopIndex;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 aroundLoopIndex;
+	int32 loopAroundTunnelCurrentIndex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector firstVertice;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInRoof = 25;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInGround = 27;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 pointsInWalls = 20;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 loopAroundTunnelLastIndex = 91;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	UCurveFloat* roundnessCurve; 
@@ -111,24 +112,18 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetValues(FVector2D scale, IntersectionType type, AProceduralTunnel* parent, FVector2D variation, bool update);
 	UFUNCTION(BlueprintCallable)
-	void RightSideIntersection();
-	UFUNCTION(BlueprintCallable)
-	void LeftSideIntersection();
-	UFUNCTION(BlueprintCallable)
-	void RightLeftIntersection();
-	UFUNCTION(BlueprintCallable)
-	void AllSidesIntersection();
-	void GenerateMeshes();
-	void CalculateTangentsAndNormals();
-	void CalculateTriangles();
-	void AddChildTunnels();
-	void GetSurfaceIndex();
+	void IntersectionGenerationLoop();
+	void StoreVertice();
+	int32 GetArrayIndex();
+	int32 GetSurfaceIndex();
 	FVector GetVertice();
+	FVector TransformVertex(FVector vertex);
+	FVector GetVerticeBySurface(int32 surface, IntersectionType type);
 	FVector GetFloorVertice();
 	FVector GetRightVertice();
 	FVector GetLeftVertice();
 	FVector GetRoofVertice();
-	FVector GetRightLeftIntersectionRoof(); // This is so special that it can be implemented into above
+	FVector SetAndReturnFirstVertice(FVector value);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTriangles();
