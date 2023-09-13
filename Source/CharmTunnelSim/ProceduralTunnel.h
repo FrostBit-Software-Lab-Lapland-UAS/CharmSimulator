@@ -78,14 +78,16 @@ public:
 	FVector2D localTunnelScale;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector2D surfaceVariation;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInRoof = 25;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInGround = 27;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInWalls = 20;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 loopAroundTunnelLastIndex = 91;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
+	int32 pointsInRoof;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
+	int32 pointsInGround;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
+	int32 pointsInRightWall;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
+	int32 pointsInLeftWall;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
+	int32 loopAroundTunnelLastIndex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FVector> wallVertices;

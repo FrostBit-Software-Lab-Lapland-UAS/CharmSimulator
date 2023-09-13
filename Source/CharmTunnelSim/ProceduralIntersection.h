@@ -86,13 +86,15 @@ public:
 	FVector firstVertice;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInRoof = 25;
+	int32 pointsInRoof;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInGround = 27;
+	int32 pointsInGround;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInWalls = 20;
+	int32 pointsInRightWall;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 loopAroundTunnelLastIndex = 91;
+	int32 pointsInLeftWall;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
+	int32 loopAroundTunnelLastIndex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	UCurveFloat* roundnessCurve; 

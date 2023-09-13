@@ -37,14 +37,15 @@ void AProceduralIntersection::SetValues(FVector2D scale, IntersectionType type, 
 		parentTunnel = parent;
 		pointsInRoof = parent->pointsInRoof;
 		pointsInGround = parent->pointsInGround;
-		pointsInWalls = parent->pointsInWalls;
+		pointsInRightWall = parent->pointsInRightWall;
+		pointsInLeftWall = parent->pointsInLeftWall;
 		switch (intersectionType)
 		{
 		case IntersectionType::Right:
-			loopAroundTunnelLastIndex = pointsInGround + pointsInWalls + pointsInRoof - 1;
+			loopAroundTunnelLastIndex = pointsInGround + pointsInLeftWall + pointsInRoof - 1;
 			break;
 		case IntersectionType::Left:
-			loopAroundTunnelLastIndex = pointsInGround + pointsInWalls + pointsInRoof - 1;
+			loopAroundTunnelLastIndex = pointsInGround + pointsInRightWall + pointsInRoof - 1;
 			break;
 		case IntersectionType::RightLeft:
 		case IntersectionType::All:
@@ -54,8 +55,8 @@ void AProceduralIntersection::SetValues(FVector2D scale, IntersectionType type, 
 	}
 	isUpdate = update;
 
-	groundVerticeSize = (localScale.X * 100.0f) / (float)(pointsInGround);
-	wallVerticeSize = (localScale.Y * 100.0f) / (float)(pointsInWalls);
+	groundVerticeSize = (localScale.X * 100.0f) / (float)(pointsInRoof);
+	wallVerticeSize = (localScale.Y * 100.0f) / (float)(pointsInLeftWall);
 }
 
 // Clear arrays
@@ -87,20 +88,24 @@ void AProceduralIntersection::IntersectionGenerationLoop()
 		for (loopAroundTunnelCurrentIndex = 0; loopAroundTunnelCurrentIndex <= loopAroundTunnelLastIndex; loopAroundTunnelCurrentIndex++)
 		{
 			surfaceIndex = GetSurfaceIndex();
-			latestVertice = GetVertice();
-			StoreVertice();
+			if (forwarLoopIndex == pointsInGround - 1 && surfaceIndex != 0) {
+
+			}
+			else {
+				latestVertice = GetVertice();
+				StoreVertice();
+			}			
 		}
 	}
 	
 	// End wall of this type intersection needs to be done invidually
 	if (intersectionType == IntersectionType::RightLeft) {
-		int32 numberOfPointsInEndWall = pointsInRoof * pointsInWalls;
+		int32 numberOfPointsInEndWall = pointsInRoof * pointsInLeftWall;
 		FVector startVertice = lastStraightRoofVertices[0];
 		startVertice.X += groundVerticeSize;
-		UE_LOG(LogTemp, Warning, TEXT("pointsInWalls: %d"), pointsInWalls);
 
 		int32 previousRow = -1;
-		for (int32 endWallCurrentIndex = 0; endWallCurrentIndex <= numberOfPointsInEndWall; endWallCurrentIndex++) {
+		for (int32 endWallCurrentIndex = 0; endWallCurrentIndex < numberOfPointsInEndWall; endWallCurrentIndex++) {
 			// This is return the row we currently are
 			int32 currentRow = FMath::Floor(endWallCurrentIndex / pointsInRoof); 
 
@@ -111,7 +116,7 @@ void AProceduralIntersection::IntersectionGenerationLoop()
 					lastRightWallVertices.Add(lastStraightFloorVertices[lastStraightFloorVertices.Num() - lastRowIndex - 2]);
 					previousRow = currentRow;
 				}
-				if (endWallCurrentIndex == numberOfPointsInEndWall) {
+				if (endWallCurrentIndex == numberOfPointsInEndWall - 1) {
 					lastLeftWallVertices.Add(lastStraightFloorVertices[lastStraightFloorVertices.Num() - lastRowIndex - 2]);
 				}
 				wallVertices.Add(lastStraightFloorVertices[lastStraightFloorVertices.Num() - lastRowIndex - 2]);
@@ -121,11 +126,11 @@ void AProceduralIntersection::IntersectionGenerationLoop()
 				// Change startVertice z location one step down
 				startVertice.Z -= wallVerticeSize;
 				// Add roundness to start vertice
-				float locationOnWall = (float)currentRow / (float)(pointsInWalls - 1);
+				float locationOnWall = (float)(currentRow + 1) / (float)(pointsInLeftWall);
 				float roundnessAmount = roundnessCurve->GetFloatValue(locationOnWall);
 				float tunnelRounding = FMath::Lerp(tunnelRoundValue, 0.0f, roundnessAmount);
 
-				startVertice.X = lastStraightRoofVertices[0].X + groundVerticeSize + tunnelRounding;
+				startVertice.X = lastStraightRoofVertices[0].X + tunnelRounding + groundVerticeSize;
 				// Set latest vertice to be our moved start vertice
 				latestVertice = startVertice;
 				// Store vertice
@@ -137,7 +142,6 @@ void AProceduralIntersection::IntersectionGenerationLoop()
 			else {
 				latestVertice.Y -= groundVerticeSize;
 				if (endWallCurrentIndex % (pointsInRoof - 1) == 0) {
-					UE_LOG(LogTemp, Warning, TEXT("Added to left"));
 					lastLeftWallVertices.Add(latestVertice);
 				}
 				wallVertices.Add(latestVertice);
@@ -195,10 +199,10 @@ void AProceduralIntersection::StoreVertice()
 		if (surfaceIndex == 2 && loopAroundTunnelCurrentIndex == 0) {
 			lastRightRoofVertices.Add(latestVertice);
 		}
-		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 1) {
+		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 2) {
 			lastStraightRoofVertices.Add(latestVertice);
 		}
-		if (surfaceIndex == 3 && forwarLoopIndex == pointsInGround - 1) {
+		if (surfaceIndex == 3 && forwarLoopIndex == pointsInGround - 2) {
 			lastLeftWallVertices.Add(latestVertice);
 		}
 		if (surfaceIndex == 0 && forwarLoopIndex == pointsInGround - 1) {
@@ -215,13 +219,13 @@ void AProceduralIntersection::StoreVertice()
 		if (surfaceIndex == 0 && forwarLoopIndex == pointsInGround - 1) {
 			lastStraightFloorVertices.Add(latestVertice);
 		}
-		if (surfaceIndex == 1 && forwarLoopIndex == pointsInGround - 1) {
+		if (surfaceIndex == 1 && forwarLoopIndex == pointsInGround - 2) {
 			lastRightWallVertices.Add(latestVertice);
 		}
 		if (surfaceIndex == 2 && loopAroundTunnelCurrentIndex == loopAroundTunnelLastIndex) {
 			lastLeftRoofVertices.Add(latestVertice);
 		}
-		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 1) {
+		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 2) {
 			lastStraightRoofVertices.Add(latestVertice);
 		}
 		break;
@@ -239,7 +243,7 @@ void AProceduralIntersection::StoreVertice()
 		if (surfaceIndex == 2 && loopAroundTunnelCurrentIndex == loopAroundTunnelLastIndex) {
 			lastLeftRoofVertices.Add(latestVertice);
 		}
-		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 1) {
+		if (surfaceIndex == 2 && forwarLoopIndex == pointsInGround - 2) {
 			lastStraightRoofVertices.Add(latestVertice);
 		}
 		if (surfaceIndex == 2 && loopAroundTunnelCurrentIndex == pointsInGround ) {
@@ -257,18 +261,18 @@ int32 AProceduralIntersection::GetSurfaceIndex()
 	{
 	case IntersectionType::Right:
 		if (loopAroundTunnelCurrentIndex < pointsInRoof) return 2;
-		else if (loopAroundTunnelCurrentIndex < pointsInRoof + pointsInWalls) return 3;
-		else if (loopAroundTunnelCurrentIndex < pointsInRoof + pointsInWalls + pointsInGround) return 0;
+		else if (loopAroundTunnelCurrentIndex < pointsInRoof + pointsInLeftWall) return 3;
+		else if (loopAroundTunnelCurrentIndex < pointsInRoof + pointsInLeftWall + pointsInGround) return 0;
 		break;
 	case IntersectionType::Left:
 		if (loopAroundTunnelCurrentIndex < pointsInGround) return 0;
-		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInWalls) return 1;
-		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInWalls + pointsInRoof) return 2;
+		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInRightWall) return 1;
+		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInRightWall + pointsInRoof) return 2;
 		break;
 	case IntersectionType::RightLeft:
 	case IntersectionType::All:
 		if (loopAroundTunnelCurrentIndex < pointsInGround) return 0;
-		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInWalls) return 2;
+		else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInLeftWall) return 2;
 		break;
 	}
 	return -1; // This is never done
@@ -282,12 +286,12 @@ int32 AProceduralIntersection::GetArrayIndex()
 	case IntersectionType::Right:
 		if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex; // Roof
 		else if (surfaceIndex == 3) return loopAroundTunnelCurrentIndex - pointsInRoof; // Left 
-		else if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex - pointsInRoof - pointsInWalls; // Ground
+		else if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex - pointsInRoof - pointsInLeftWall; // Ground
 		break;
 	case IntersectionType::Left:
 		if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex; // Ground
 		else if (surfaceIndex == 1) return loopAroundTunnelCurrentIndex - pointsInGround; // Right 
-		else if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex - pointsInGround - pointsInWalls; // Roof
+		else if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall; // Roof
 		break;
 	case IntersectionType::RightLeft:
 	case IntersectionType::All:
@@ -366,15 +370,20 @@ FVector AProceduralIntersection::GetVerticeBySurface(int32 surface, Intersection
 FVector AProceduralIntersection::GetFloorVertice()
 {
 	float sideWaysMovementAmount = 0.0f;
-	FVector verticeOffset = FVector(0.0f);
 
 	// Calculate the amount of sideways movement based on the intersection type.
 	switch (intersectionType)
 	{
 	case IntersectionType::Right:
-		sideWaysMovementAmount = groundVerticeSize * (loopAroundTunnelCurrentIndex - pointsInRoof - pointsInWalls);
-		if (loopAroundTunnelCurrentIndex == pointsInRoof + pointsInWalls)
+		sideWaysMovementAmount = groundVerticeSize * (float)(loopAroundTunnelCurrentIndex - pointsInRoof - pointsInLeftWall);
+		UE_LOG(LogTemp, Warning, TEXT("The float value is: %f"), sideWaysMovementAmount);
+
+		if (forwarLoopIndex == pointsInGround - 1)
 		{
+			FVector verticeOffset = FVector(0.0f, (float)pointsInRoof / 2.0f * groundVerticeSize, 0.0f);
+			SetAndReturnFirstVertice(FVector((float)forwarLoopIndex * groundVerticeSize, 0.0f, 0.0f) - verticeOffset);
+		}
+		else if (loopAroundTunnelCurrentIndex == pointsInRoof + pointsInLeftWall) {
 			SetAndReturnFirstVertice(latestVertice);
 		}
 		break;
@@ -384,7 +393,7 @@ FVector AProceduralIntersection::GetFloorVertice()
 		sideWaysMovementAmount = groundVerticeSize * loopAroundTunnelCurrentIndex;
 		if (loopAroundTunnelCurrentIndex == 0)
 		{
-			verticeOffset = FVector(0.0f, (float)pointsInGround / 2.0f * groundVerticeSize, 0.0f);
+			FVector verticeOffset = FVector(0.0f, (float)pointsInRoof / 2.0f * groundVerticeSize, 0.0f);
 			SetAndReturnFirstVertice(latestVertice - verticeOffset);
 		}
 		break;
@@ -415,7 +424,7 @@ FVector AProceduralIntersection::GetRightVertice()
 	}
 
 	// Calculate the location of the vertice along the wall and the amount of roundness based on that location.
-	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInGround) / (float)pointsInWalls;
+	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInGround) / (float)pointsInRightWall;
 	float roundnessAmount = roundnessCurve->GetFloatValue(locationOnWall);
 	float tunnelRounding = FMath::Lerp(tunnelRoundValue, 0.0f, roundnessAmount);
 
@@ -443,25 +452,25 @@ FVector AProceduralIntersection::GetRoofVertice()
 	switch (intersectionType) 
 	{
 	case IntersectionType::Right:
-		locationOnYRoof = (float)loopAroundTunnelCurrentIndex / (float)pointsInRoof;
+		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex + 1) / (float)pointsInRoof;
 		roofYRoundness = roundnessCurve->GetFloatValue(locationOnYRoof);
 		if (locationOnYRoof >= 0.5) roundness = roofYRoundness;
 		else roundness = FMath::Min(roofYRoundness, roofXRoundness);
 		break;
 	case IntersectionType::Left:
-		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround - pointsInWalls) / (float)pointsInRoof;
+		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall + 1 ) / (float)pointsInRoof;
 		roofYRoundness = roundnessCurve->GetFloatValue(locationOnYRoof);
 		if (locationOnYRoof < 0.5) roundness = roofYRoundness;
 		else roundness = FMath::Min(roofYRoundness, roofXRoundness);
 		break;
 	case IntersectionType::RightLeft:
-		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround) / (float)pointsInRoof;
+		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround + 1) / (float)pointsInRoof;
 		roofYRoundness = roundnessCurve->GetFloatValue(locationOnYRoof);
 		if (locationOnXRoof >= 0.5) roundness = roofXRoundness;
 		else roundness = FMath::Min(roofYRoundness, roofXRoundness);
 		break;
 	case IntersectionType::All:
-		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround) / (float)pointsInRoof;
+		locationOnYRoof = (float)(loopAroundTunnelCurrentIndex - pointsInGround + 1) / (float)pointsInRoof;
 		roofYRoundness = roundnessCurve->GetFloatValue(locationOnYRoof);
 		roundness = FMath::Min(roofYRoundness, roofXRoundness);
 		break;
@@ -477,7 +486,8 @@ FVector AProceduralIntersection::GetRoofVertice()
 		if (loopAroundTunnelCurrentIndex == 0) 
 		{
 			// If we are at the start of the intersection, set the starting point.
-			selectedVector = latestVertice + FVector(0.0f, ((float)pointsInRoof / 2.0f) * groundVerticeSize, ((float)pointsInWalls -1) * wallVerticeSize);
+			float yLocation = ((float)(pointsInRoof) / 2.0f) * groundVerticeSize - groundVerticeSize;
+			selectedVector = latestVertice + FVector(0.0f, yLocation, ((float)pointsInLeftWall) * wallVerticeSize);
 			firstVertice = selectedVector;
 		}
 		else {
@@ -496,19 +506,14 @@ FVector AProceduralIntersection::GetRoofVertice()
 	} 
 	else if (intersectionType == IntersectionType::Left) // LEFT SIDE INTERSECTION
 	{
+		if(loopAroundTunnelCurrentIndex == pointsInGround + pointsInRightWall)
+		{
+			firstVertice = latestVertice;
+		}
 
-		FVector selectedVector = latestVertice - FVector(0.0f, groundVerticeSize, 0.0f);
-		if(loopAroundTunnelCurrentIndex == pointsInGround + pointsInWalls)
-		{
-			// If we are at the start of the intersection, set the starting point.
-			selectedVector = latestVertice + FVector(0.0f,0.0f, wallVerticeSize) - FVector(0.0f, groundVerticeSize, 0.0f);
-			firstVertice = selectedVector;
-		}
-		else 
-		{
-			// Otherwise, move on the Y axis.
-			selectedVector = firstVertice - FVector(0.0f, (float)((loopAroundTunnelCurrentIndex - pointsInGround - pointsInWalls) * groundVerticeSize), 0.0f);
-		}
+		FVector selectedVector = firstVertice;
+		float sideWaysMovementSize = (float)(loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall + 1) * groundVerticeSize;
+		selectedVector.Y -= sideWaysMovementSize;
 
 		// Add roundness to the vertex position.
 		selectedVector.Z += tunnelRounding / 2; // ADD ROUNDNESS
@@ -521,18 +526,17 @@ FVector AProceduralIntersection::GetRoofVertice()
 	} 
 	else // ALL SIDE INTERSECTION
 	{
-		FVector selectedVector = latestVertice - FVector(0.0f, groundVerticeSize, 0.0f);
 		if(loopAroundTunnelCurrentIndex == pointsInGround)
 		{
-			// If we are at the start of the intersection, set the starting point.
-			selectedVector.Z = parentTunnel->lastRoofVertices[0].Z;
-			firstVertice = selectedVector;
+			firstVertice = latestVertice + FVector(0.0f, 0.0f, pointsInLeftWall * wallVerticeSize);
 		}
 
-		selectedVector.Z = firstVertice.Z + tunnelRounding / 2; // ADD ROUNDNESS
+		FVector selectedVector = firstVertice;
+		float sideWaysMovementSize = (float)(loopAroundTunnelCurrentIndex - pointsInGround + 1) * groundVerticeSize;
+		selectedVector.Y -= sideWaysMovementSize;
 
-		// Set the ZValue to the height of the middle vertex of the roof.
-		//selectedVector = FVector(selectedVector.X, selectedVector.Y, parentTunnel->lastRoofVertices[0/*(parentTunnel->lastRoofVertices.Num() - 1) / 2*/].Z);
+		selectedVector.Z += tunnelRounding / 2; // ADD ROUNDNESS
+
 		return selectedVector;
 	}
 }
@@ -543,11 +547,10 @@ FVector AProceduralIntersection::GetLeftVertice()
 	// Set the position of the first vertex if we are on the last vertice of the wall.
 	if (loopAroundTunnelCurrentIndex == pointsInRoof) {
 		firstVertice = latestVertice;
-		firstVertice.Y -= groundVerticeSize;
 	}
 
 	// Calculate the location of the vertice on the wall.
-	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInRoof) / (float)pointsInWalls;
+	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInRoof + 1) / (float)pointsInLeftWall;
 
 	// Calculate the amount of roundness and tunnel rounding.
 	float roundnessAmount = roundnessCurve->GetFloatValue(locationOnWall);
