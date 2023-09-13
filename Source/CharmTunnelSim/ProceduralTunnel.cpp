@@ -19,13 +19,10 @@ AProceduralTunnel::AProceduralTunnel()
 	PrimaryActorTick.bCanEverTick = true;
 
 	if (IsValid(parentIntersection)) {
-		pointsInRoof = parentIntersection->pointsInRoof;
-		// Points in ground is always + 2 of roof points
-		pointsInGround = parentIntersection->pointsInGround;
-		pointsInRightWall = parentIntersection->pointsInRightWall;
-		pointsInLeftWall = parentIntersection->pointsInLeftWall;
+		numberOfVerticalPoints = parentIntersection->numberOfVerticalPoints;
+		numberOfHorizontalPoints = parentIntersection->numberOfHorizontalPoints;
 		// -1 because when tunnel round loop is created it starts with index 0
-		loopAroundTunnelLastIndex = pointsInRoof + pointsInGround + pointsInRightWall + pointsInLeftWall - 1;
+		loopAroundTunnelLastIndex = numberOfVerticalPoints + numberOfHorizontalPoints - 1;
 	}
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>("Root Scene Component");
@@ -276,8 +273,8 @@ int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
 {
 	float tunnelWidth = widthScale * 100.0f;
 	float tunnelHeight = heightScale * 100.0f;
-	groundVerticeSize = tunnelWidth / (float)(pointsInRoof);
-	wallVerticeSize = tunnelHeight / (float)(pointsInLeftWall);
+	horizontalPointSize = tunnelWidth / (float)(numberOfHorizontalPoints - 1);
+	verticalPointSize = tunnelHeight / (float)(numberOfVerticalPoints);
 
 	reCreateMeshCount = 2;
 	meshInRework = -1;
@@ -443,7 +440,7 @@ void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate,
 		}
 
 		// Adjust the latest vertice for overlap
-		//latestVertice = AdjustLatestVerticeForOverlap(latestVertice, surfaceIndex);
+		latestVertice = AdjustLatestVerticeForOverlap(latestVertice, surfaceIndex);
 
 		// Save the first vertice if needed
 		SaveFirstVerticeIfNeeded(latestVertice);
@@ -460,9 +457,6 @@ void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate,
 		if (IsOnTheEndOfCurrentMeshSection()) {
 			SaveEndMeshVerticeData(surfaceIndex, latestVertice);
 		}
-
-		// Add UV coordinates for this point
-		AddUVCoordinates(surfaceIndex, stepIndexInsideMesh, stepCountToMakeCurrentMesh, loopAroundTunnelCurrentIndex);
 	}
 }
 
@@ -573,15 +567,15 @@ FVector AProceduralTunnel::AdjustLatestVerticeForOverlap(FVector vertice, int32 
 	FVector previousLoopVertice = FVector(0.0f, 0.0f, 0.0f);
 	// On the walls/roof
 	if (surface != 0) {
-		int32 previousVerticeIndex = pointsInRightWall + pointsInLeftWall + pointsInRoof;
-		if (wallVertices.Num() - previousVerticeIndex > 0) {
-			previousLoopVertice = wallVertices[wallVertices.Num() - previousVerticeIndex];
+		int32 previousVertice = numberOfHorizontalPoints + numberOfVerticalPoints * 2;
+		if (wallVertices.Num() - previousVertice >= 0) {
+			previousLoopVertice = wallVertices[wallVertices.Num() - previousVertice];
 		}
 	}
 	// On the floor
 	else {
-		if (groundVertices.Num() - pointsInGround > 0) {
-			previousLoopVertice = groundVertices[groundVertices.Num() - pointsInGround];
+		if (groundVertices.Num() - numberOfHorizontalPoints >= 0) {
+			previousLoopVertice = groundVertices[groundVertices.Num() - numberOfHorizontalPoints];
 		}
 	}
 	// This is forward vector pointing at startLocationOnSpline
@@ -673,33 +667,6 @@ void AProceduralTunnel::SaveEndMeshVerticeData(int32 surface, FVector vertice) {
 	}
 }
 
-// Adds UV coordinates to the mesh based on the provided surface index, loop index between points,
-// last index between points, and current index around the tunnel.
-void AProceduralTunnel::AddUVCoordinates(int32 surface, int32 loopIndexBetweenPoints, int32 lastIndexBetweenPoints, int32 currentIndexAroundTunnel) {
-	float xValue = loopIndexBetweenPoints;
-	float yValue;
-
-	// If we are at the last point between points, set the xValue to 0.
-	if (lastIndexBetweenPoints == 0) {
-		xValue = 0.0f;
-	}
-
-	// If the surface is the floor (0), calculate yValue based on the current index around the tunnel
-	// and the number of points in the width, then add the UV coordinates to the ground arrays.
-	if (surface == 0) {
-		yValue = static_cast<float>(currentIndexAroundTunnel) / pointsInRoof;
-		groundUV.Add(FVector2D(xValue, yValue));
-		currentMeshEndData.GroundUV.Add(FVector2D(xValue, yValue));
-	}
-	// If the surface is not the floor, calculate yValue based on the current index around the tunnel,
-	// number of points in width, and number of points in height, then add the UV coordinates to the wall arrays.
-	else {
-		yValue = static_cast<float>(currentIndexAroundTunnel - pointsInRoof) / (pointsInRoof + pointsInRightWall + pointsInLeftWall);
-		wallUV.Add(FVector2D(xValue, yValue));
-		currentMeshEndData.WallUV.Add(FVector2D(xValue, yValue));
-	}
-}
-
 // Get vertices for intersections child tunnel pointing to right
 FVector AProceduralTunnel::RightTunnelStart() 
 {
@@ -749,14 +716,8 @@ FVector AProceduralTunnel::LeftTunnelStart()
 	case 1:
 		if(parentIntersection->intersectionType == IntersectionType::RightLeft)
 		{
-			if (verticeIndex == pointsInRightWall - 1) {
-				vertice = parentIntersection->lastLeftRoofVertices[parentIntersection->lastLeftRoofVertices.Num() - 1];
-				return TransformVerticeToLocalSpace(parentIntersection, vertice);
-			}
-			else {
-				vertice = parentIntersection->lastLeftWallVertices[parentIntersection->lastLeftWallVertices.Num() - (1 + verticeIndex)];
-				return TransformVerticeToLocalSpace(parentIntersection, vertice);
-			}
+			vertice = parentIntersection->lastLeftWallVertices[parentIntersection->lastLeftWallVertices.Num() - (1 + verticeIndex)];
+			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 		else 
@@ -778,14 +739,8 @@ FVector AProceduralTunnel::LeftTunnelStart()
 	}
 }
 
-FVector AProceduralTunnel::TransformVerticeToLocalSpace(AActor* actorFrom, FVector vector) {
-	vector = UKismetMathLibrary::TransformLocation(actorFrom->GetTransform(), vector); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
-	vector = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vector);
-	return vector;
-}
-
 // Get vertices for intersections child tunnel pointing forward
-FVector AProceduralTunnel::StraightTunnelStart() 
+FVector AProceduralTunnel::StraightTunnelStart()
 {
 	FVector vertice;
 	switch (surfaceIndex)
@@ -795,18 +750,12 @@ FVector AProceduralTunnel::StraightTunnelStart()
 		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
-		if(IsValid(rightSideTunnel))
+		if (IsValid(rightSideTunnel))
 		{
-			if (verticeIndex == pointsInRightWall - 1) {
-				vertice = rightSideTunnel->firstRoofVertices[rightSideTunnel->firstRoofVertices.Num() - 1];
-				return TransformVerticeToLocalSpace(rightSideTunnel, vertice);
-			}
-			else {
-				vertice = rightSideTunnel->firstLeftVertices[rightSideTunnel->firstLeftVertices.Num() - (1 + verticeIndex)];
-				return TransformVerticeToLocalSpace(rightSideTunnel, vertice);
-			}
+			vertice = rightSideTunnel->firstLeftVertices[rightSideTunnel->firstLeftVertices.Num() - (1 + verticeIndex)];
+			return TransformVerticeToLocalSpace(rightSideTunnel, vertice);
 			break;
-		} 
+		}
 		else
 		{
 			vertice = parentIntersection->lastRightWallVertices[verticeIndex];
@@ -820,20 +769,26 @@ FVector AProceduralTunnel::StraightTunnelStart()
 	case 3:
 		if (IsValid(leftSideTunnel))
 		{
-			vertice = leftSideTunnel->firstRightVertices[leftSideTunnel->firstRightVertices.Num() - (2 + verticeIndex)];
+			vertice = leftSideTunnel->firstRightVertices[leftSideTunnel->firstRightVertices.Num() - (1 + verticeIndex)];
 			return TransformVerticeToLocalSpace(leftSideTunnel, vertice);
 			break;
-		} 
-		else 
+		}
+		else
 		{
 			vertice = parentIntersection->lastLeftWallVertices[verticeIndex];
 			return TransformVerticeToLocalSpace(parentIntersection, vertice);
 			break;
 		}
 	default:
-		return FVector(0,0,0);
+		return FVector(0, 0, 0);
 		break;
 	}
+}
+
+FVector AProceduralTunnel::TransformVerticeToLocalSpace(AActor* actorFrom, FVector vector) {
+	vector = UKismetMathLibrary::TransformLocation(actorFrom->GetTransform(), vector); 							   // FLIP FROM CONNECTED ACTORS TRANSFORM TO WORLD TRANSFORM
+	vector = UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), vector);
+	return vector;
 }
 
 // Get vertice for ground 
@@ -851,7 +806,7 @@ FVector AProceduralTunnel::GetVerticeOnGround()
 	float deform = FMath::RandRange(amountOfDeform * -20, amountOfDeform * 20);
 
 	// Add sideways movement to start location
-	float stepSize = groundVerticeSize * (float)loopAroundTunnelCurrentIndex;
+	float stepSize = horizontalPointSize * (float)loopAroundTunnelCurrentIndex;
 	FVector stepToSide = wallStartVertice + rightVector * stepSize;
 	return FVector(stepToSide.X, stepToSide.Y, stepToSide.Z - deform);
 }
@@ -862,7 +817,7 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	bool isEndOrStar = false;
 
 	// Right wall have to start from where floor ends to prevent any cap between floor and wall meshes
-	if (loopAroundTunnelCurrentIndex == pointsInGround)
+	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints)
 	{
 		// Save the starting vertice when entering first time
 		wallStartVertice = latestVertice;
@@ -947,14 +902,14 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	}
 
 	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
-	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInGround) / (float)(pointsInRightWall - 1);
+	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) / (float)(numberOfVerticalPoints);
 
-	float wVerticeSize = wallVerticeSize;
+	float wVerticeSize = verticalPointSize;
 
 	// Adjust the vertice size for the first loop around 
 	if (isFirstLoopARound && IsValid(parentIntersection))
 	{
-		wVerticeSize = parentIntersection->wallVerticeSize;
+		wVerticeSize = parentIntersection->verticalPointSize;
 	}
 
 
@@ -962,7 +917,7 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	float roundnessAmount = deformCurve->GetFloatValue(locationOnWall);
 	FVector tunnelRoundnesss = rVector * (FMath::Lerp((tunnelRoundValue + extraMovementToEnd), 0.0f, roundnessAmount));
 
-	float zLocation = (loopAroundTunnelCurrentIndex - pointsInGround) * wVerticeSize;
+	float zLocation = (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) * wVerticeSize;
 	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation);
 	wallVertice += tunnelRoundnesss;
 
@@ -979,18 +934,19 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 FVector AProceduralTunnel::GetVerticeOnRoof()
 {
 	// Save start vertice when entering first time
-	if (loopAroundTunnelCurrentIndex == pointsInGround + pointsInRightWall)
+	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints)
 	{
-		wallStartVertice = latestVertice;
+		wallStartVertice.Z += verticalPointSize * numberOfVerticalPoints;
+		return wallStartVertice;
 	}
 
 	FVector wallVertice = wallStartVertice;
 
-    float sideWaysMovementSize = (float)(loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall + 1) * -groundVerticeSize;
+    float sideWaysMovementSize = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints) * -horizontalPointSize;
 	wallVertice += rightVector * sideWaysMovementSize;
 
     // Apply roundness to the starting location
-    float roundingIndex = (float)(loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall + 1) / (float)(pointsInRoof);
+    float roundingIndex = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints) / (float)(numberOfHorizontalPoints - 1);
     float roundnessAmount = deformCurve->GetFloatValue(roundingIndex);
     float tunnelRounding = FMath::Lerp(tunnelRoundValue, 0.0f, roundnessAmount);
 	// Divide rounding by 2 to add more natural roundness to roof
@@ -1009,7 +965,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	bool isEndOrStar = false;
 	float extraMovementToEnd = 0.0f;
 	FVector rVector = rightVector;
-	float wVerticeSize = wallVerticeSize;
+	float wVerticeSize = verticalPointSize;
 
 	// If we have completed a full loop around the tunnel, return the first vertice.
 	// This is to create seamless wall and ground connection
@@ -1019,17 +975,16 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	}
 
 	// Save the starting vertice when entering first time
-	if (loopAroundTunnelCurrentIndex == pointsInRoof + pointsInGround + pointsInRightWall)
+	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints * 2 + numberOfVerticalPoints)
 	{
 		wallStartVertice = latestVertice;
-		//wallStartVertice += rightVector * -groundVerticeSize;
 	}
 	
 
 	// If this is the first loop around the tunnel and a parent intersection is valid, use the parent's wall vertice size.
 	if (isFirstLoopARound && IsValid(parentIntersection))
 	{
-		wVerticeSize = parentIntersection->wallVerticeSize;
+		wVerticeSize = parentIntersection->verticalPointSize;
 	}
 
 	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
@@ -1044,7 +999,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 		if ((tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel)
 		{
 			isEndOrStar = true;
-			wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(pointsInRightWall)*wallVerticeSize));
+			wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(numberOfVerticalPoints)*verticalPointSize));
 
 
 			float rotateAmount = 0.0f;
@@ -1115,7 +1070,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	}
 
 	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
-	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - pointsInRoof - pointsInGround - pointsInRightWall + 1) / (float)pointsInLeftWall;
+	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints * 2 - numberOfVerticalPoints + 1) / (float)numberOfVerticalPoints;
 	// Add roundness to the tunnel wall
 
 	float roundnessAmount = deformCurve->GetFloatValue(locationOnWall);
@@ -1124,7 +1079,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 		roundnessAmount = FMath::Clamp((float)(roundnessAmount - 0.1f), 0.0f, 1.0f);
 	}
 	FVector tunnelRoundnesss = rVector * FMath::Lerp((tunnelRoundValue + extraMovementToEnd) * -1, 0.0f, roundnessAmount); // AMOUNT WE MOVE TO SIDE TO CREATE  THAT ROUND LOOK OF TUNNEL
-	float zLocation = (loopAroundTunnelCurrentIndex - pointsInRoof - pointsInGround - pointsInRightWall + 1) * (wVerticeSize * -1.0f);
+	float zLocation = (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints * 2 - numberOfVerticalPoints + 1) * (wVerticeSize * -1.0f);
 
 
 	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation);
@@ -1150,13 +1105,13 @@ int32 AProceduralTunnel::GetIndexOfVertice()
 			return loopAroundTunnelCurrentIndex;
 			break;
 		case 1: 
-			return loopAroundTunnelCurrentIndex - pointsInGround;
+			return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints;
 			break;
 		case 2: 
-			return loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall;
+			return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints;
 			break;
 		case 3: 
-			return loopAroundTunnelCurrentIndex - pointsInGround - pointsInRightWall - pointsInRoof;
+			return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints * 2 - numberOfVerticalPoints;
 			break;
 		default:
 			return 0;
@@ -1181,14 +1136,14 @@ bool AProceduralTunnel::GetIsFirstLoopAround()
 // 0 = Floor, 1 = Right, 2 = Roof, 3 = Left
 int32 AProceduralTunnel::GetSurfaceIndex() 
 {
-	if(loopAroundTunnelCurrentIndex < pointsInGround) {
+	if(loopAroundTunnelCurrentIndex < numberOfHorizontalPoints) {
 		return 0;
 	} 
-	else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInRightWall)
+	else if (loopAroundTunnelCurrentIndex < numberOfHorizontalPoints + numberOfVerticalPoints)
 	{
 		return 1;
 	}
-	else if (loopAroundTunnelCurrentIndex < pointsInGround + pointsInRightWall + pointsInRoof)
+	else if (loopAroundTunnelCurrentIndex < numberOfHorizontalPoints * 2 + numberOfVerticalPoints)
 	{
 		return 2;
 	}
@@ -1242,7 +1197,7 @@ void AProceduralTunnel::InitializeStartVectorRightVectorAndValueInTexture()
 
 
 	// Calculate the sideways multiplier
-	float sideWaysMultiplier = (float)(pointsInGround - 1) / 2.0f * groundVerticeSize;
+	float sideWaysMultiplier = (float)(numberOfHorizontalPoints - 1) / 2.0f * horizontalPointSize;
 	
 	// Get vector used as first vertice when generating tunnel
 	FVector negativeRightVector = rightVectorOnDistance * -1;																			 

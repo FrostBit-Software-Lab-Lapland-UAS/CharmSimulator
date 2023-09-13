@@ -79,13 +79,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FVector2D surfaceVariation;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
-	int32 pointsInRoof;
+	int32 numberOfHorizontalPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
-	int32 pointsInGround;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
-	int32 pointsInRightWall;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
-	int32 pointsInLeftWall;
+	int32 numberOfVerticalPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points", meta = (ExposeOnSpawn = "true"))
 	int32 loopAroundTunnelLastIndex;
 
@@ -150,9 +146,9 @@ public:
 	int32 surfaceIndex;
 	int32 verticeIndex;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	float groundVerticeSize;
+	float horizontalPointSize;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	float wallVerticeSize;
+	float verticalPointSize;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FMeshSectionEnd currentMeshEndData;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
@@ -237,7 +233,6 @@ public:
 	void SaveFirstLoopVerticeData(int32 surfaceIndex, FVector latestVertice);
 	bool IsOnTheEndOfCurrentMeshSection();
 	void SaveEndMeshVerticeData(int32 surfaceIndex, FVector latestVertice);
-	void AddUVCoordinates(int32 surfaceIndex, int32 stepIndexInsideMesh, int32 stepCountToMakeCurrentMesh, int32 loopAroundTunnelCurrentIndex);
 
 	UFUNCTION(BlueprintCallable)
 	void DestroyLastMesh();

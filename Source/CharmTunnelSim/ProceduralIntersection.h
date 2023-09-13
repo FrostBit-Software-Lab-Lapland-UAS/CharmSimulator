@@ -28,7 +28,9 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	float wallVerticeSize;
+	float verticalPointSize;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
+	float horizontalPointSize;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector> lastRightWallVertices;
@@ -64,8 +66,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	bool isUpdate;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	float groundVerticeSize;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector> wallVertices;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FVector> groundVertices;
@@ -86,13 +86,9 @@ public:
 	FVector firstVertice;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInRoof;
+	int32 numberOfHorizontalPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInGround;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInRightWall;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
-	int32 pointsInLeftWall;
+	int32 numberOfVerticalPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vertice points")
 	int32 loopAroundTunnelLastIndex;
 
