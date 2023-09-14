@@ -331,7 +331,7 @@ FVector AProceduralIntersection::GetVerticeBySurface(int32 surface, Intersection
 	return FVector(0.0f, 0.0f, 0.0f);
 }
 
-FVector AProceduralIntersection::SetAndReturnFirstVertice(FVector value)
+FVector AProceduralIntersection::SetFirstVerticeOfSurface(FVector value)
 {
 	firstVertice = value;
 	return value;
@@ -348,7 +348,7 @@ FVector AProceduralIntersection::GetFloorVertice()
 	case IntersectionType::Right:
 		sideWaysMovementAmount = horizontalPointSize * (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints);
 		if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints) {
-			SetAndReturnFirstVertice(latestVertice);
+			return SetFirstVerticeOfSurface(latestVertice);
 		}
 		break;
 	case IntersectionType::Left:
@@ -358,7 +358,7 @@ FVector AProceduralIntersection::GetFloorVertice()
 		if (loopAroundTunnelCurrentIndex == 0)
 		{
 			FVector verticeOffset = FVector(0.0f, (float)(numberOfHorizontalPoints - 1) / 2.0f * horizontalPointSize, 0.0f);
-			SetAndReturnFirstVertice(latestVertice - verticeOffset);
+			return SetFirstVerticeOfSurface(latestVertice - verticeOffset);
 		}
 		break;
 	}
@@ -523,6 +523,11 @@ FVector AProceduralIntersection::GetLeftVertice()
 	FVector vertice = firstVertice - FVector(0.0f, 0.0f, verticalPointSize * (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints + 1));
 	vertice.Y -= tunnelRounding; // ADD ROUNDNESS
 	vertice.Y -= deform;      // ADD DEFORM
+	// Prevent deformation on last index. Because this would affect the grounds deformation
+	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints - 1) {
+		vertice.Z = TransformVertex(parentTunnel->lastLeftVertices[parentTunnel->lastLeftVertices.Num() - 1]).Z;
+		vertice.Y = TransformVertex(parentTunnel->lastLeftVertices[parentTunnel->lastLeftVertices.Num() - 1]).Y;
+	}
 
 	// Return the position vector of the vertice.
 	return vertice;

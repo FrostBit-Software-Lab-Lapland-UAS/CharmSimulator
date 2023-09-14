@@ -121,7 +121,7 @@ public:
 	FVector GetRightVertice();
 	FVector GetLeftVertice();
 	FVector GetRoofVertice();
-	FVector SetAndReturnFirstVertice(FVector value);
+	FVector SetFirstVerticeOfSurface(FVector value);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTriangles();
