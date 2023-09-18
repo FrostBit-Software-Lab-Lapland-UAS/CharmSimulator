@@ -189,7 +189,6 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 	}
 }
 
-
 // This will control the addition of new spline points on drag event and remove when undoing or reseting
 void AProceduralTunnel::ControlSplinePoints(bool interSectionAdded)
 {

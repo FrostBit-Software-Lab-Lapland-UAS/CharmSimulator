@@ -98,12 +98,6 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Deformation")
 	float GetPixelValue(int32 x, int32 y);
 
-
-	/////////////test stuff
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TEST", meta = (AllowPrivateAccess = "true"))
-	UStaticMesh* cube;
-
-
 	// FUNCTIONS
 	UFUNCTION(BlueprintCallable)
 	void ClearArrays();
@@ -121,7 +115,6 @@ public:
 	FVector GetRightVertice();
 	FVector GetLeftVertice();
 	FVector GetRoofVertice();
-	FVector SetFirstVerticeOfSurface(FVector value);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTriangles();

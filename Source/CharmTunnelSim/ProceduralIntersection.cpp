@@ -170,6 +170,9 @@ void AProceduralIntersection::StoreVertice()
 		if (surfaceIndex == 3 && forwarLoopIndex == numberOfHorizontalPoints - 1) {
 			lastLeftWallVertices.Add(latestVertice);
 		}
+		if (surfaceIndex == 0 && loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints) {
+			lastLeftFloorVertices.Add(latestVertice);
+		}
 		if (surfaceIndex == 0 && forwarLoopIndex == numberOfHorizontalPoints - 1) {
 			lastStraightFloorVertices.Add(latestVertice);
 		}
@@ -183,6 +186,9 @@ void AProceduralIntersection::StoreVertice()
 		}
 		if (surfaceIndex == 0 && forwarLoopIndex == numberOfHorizontalPoints - 1) {
 			lastStraightFloorVertices.Add(latestVertice);
+		}
+		if (surfaceIndex == 1 && loopAroundTunnelCurrentIndex == numberOfHorizontalPoints) {
+			lastRightFloorVertices.Add(latestVertice);
 		}
 		if (surfaceIndex == 1 && forwarLoopIndex == numberOfHorizontalPoints - 1) {
 			lastRightWallVertices.Add(latestVertice);
@@ -331,12 +337,6 @@ FVector AProceduralIntersection::GetVerticeBySurface(int32 surface, Intersection
 	return FVector(0.0f, 0.0f, 0.0f);
 }
 
-FVector AProceduralIntersection::SetFirstVerticeOfSurface(FVector value)
-{
-	firstVertice = value;
-	return value;
-}
-
 // Get the floor vertice for the intersection
 FVector AProceduralIntersection::GetFloorVertice()
 {
@@ -348,7 +348,7 @@ FVector AProceduralIntersection::GetFloorVertice()
 	case IntersectionType::Right:
 		sideWaysMovementAmount = horizontalPointSize * (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints);
 		if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints) {
-			return SetFirstVerticeOfSurface(latestVertice);
+			return firstVertice = latestVertice;
 		}
 		break;
 	case IntersectionType::Left:
@@ -358,7 +358,7 @@ FVector AProceduralIntersection::GetFloorVertice()
 		if (loopAroundTunnelCurrentIndex == 0)
 		{
 			FVector verticeOffset = FVector(0.0f, (float)(numberOfHorizontalPoints - 1) / 2.0f * horizontalPointSize, 0.0f);
-			return SetFirstVerticeOfSurface(latestVertice - verticeOffset);
+			return firstVertice = latestVertice - verticeOffset;
 		}
 		break;
 	}
