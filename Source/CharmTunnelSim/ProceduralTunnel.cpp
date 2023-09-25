@@ -93,6 +93,11 @@ void AProceduralTunnel::DestroyLastMesh()
 // Function that connects the end of the current tunnel to the end of another tunnel spline
 void AProceduralTunnel::SnapToEndOfOtherSpline()
 {
+	// Prevent snapping if only 2 or less points in spline
+	if (SplineComponent->GetNumberOfSplinePoints() <= 2) {
+		return;
+	}
+
 	// Initialize variables to store the closest point, lowest distance, and closest tangent
 	FVector closestPoint = FVector(0, 0, 0);
 	FVector closestTangent;
@@ -133,8 +138,17 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			// Calculate the distance between the current tunnel end and the other tunnel end
 			float distance = FVector::Distance(comparedPointsLocation, lastPointLocation);
 
+			// Get the forward direction of the current tunnel's end
+			FVector currentEndForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
+
+			// Calculate the direction from the current tunnel end to the other tunnel end
+			FVector directionToOtherEnd = (comparedPointsLocation - lastPointLocation).GetSafeNormal();
+
+			// Calculate the dot product
+			float dotProduct = FVector::DotProduct(currentEndForward, directionToOtherEnd);
+
 			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if (distance < maxDistance)
+			if (distance < maxDistanceToSnapSplineEnds && dotProduct >= 0)
 			{
 				closestPoint = comparedPointsLocation;
 				closestTangent = spline->GetTangentAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
@@ -158,8 +172,17 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			// Calculate the distance between the current tunnel end and the other tunnel end
 			float distance = FVector::Distance(selfFirstPointLocation, lastPointLocation);
 
+			// Get the forward direction of the current tunnel's end
+			FVector currentEndForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
+
+			// Calculate the direction from the current tunnel end to the other tunnel end
+			FVector directionToOtherEnd = (selfFirstPointLocation - lastPointLocation).GetSafeNormal();
+
+			// Calculate the dot product
+			float dotProduct = FVector::DotProduct(currentEndForward, directionToOtherEnd);
+
 			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if (distance < maxDistance)
+			if (distance < maxDistanceToSnapSplineEnds && dotProduct > 0)
 			{
 				closestPoint = selfFirstPointLocation;
 				closestTangent = spline->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World);
@@ -334,9 +357,9 @@ void AProceduralTunnel::InitializeProceduralGenerationLoopVariables(int32 firstI
 void AProceduralTunnel::CalculateStepsInTunnelSection() {
 	float latestLocation = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 1));
 	float previousLocation = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 2));
-	stepCountToMakeCurrentMesh = FMath::Floor((latestLocation - previousLocation) / stepSizeOnSpline);
-	float remainder = ((latestLocation - previousLocation) / stepSizeOnSpline) - (float)stepCountToMakeCurrentMesh;
-	lastStepSizeOnSpline = stepSizeOnSpline * remainder + stepSizeOnSpline;
+	stepCountToMakeCurrentMesh = FMath::Floor((latestLocation - previousLocation) / horizontalPointSize);
+	float remainder = ((latestLocation - previousLocation) / horizontalPointSize) - (float)stepCountToMakeCurrentMesh;
+	lastStepSizeOnSpline = horizontalPointSize * remainder + horizontalPointSize;
 }
 
 // Reset the current mesh end data
@@ -1162,11 +1185,11 @@ void AProceduralTunnel::InitializeStartVectorRightVectorAndValueInTexture()
 
 	/// Get current distance on spline. If at the end of tunnel last step is taken in lastStepSizeOnSpline because it can differ from normal step size
 	float currentDistance = IsOnTheEndOfTunnel()
-		? startDistance + ((float)(stepIndexInsideMesh - 1) * stepSizeOnSpline + lastStepSizeOnSpline)
-		: startDistance + (float)stepIndexInsideMesh * stepSizeOnSpline;
+		? startDistance + ((float)(stepIndexInsideMesh - 1) * horizontalPointSize + lastStepSizeOnSpline)
+		: startDistance + (float)stepIndexInsideMesh * horizontalPointSize;
 
 	// Calculate distance on spline in steps
-	float distanceOnSpline = currentDistance / stepSizeOnSpline; 
+	float distanceOnSpline = currentDistance / horizontalPointSize; 
 
 	// Get location in local space at current distance
 	startLocationOnSpline = SplineComponent->GetLocationAtDistanceAlongSpline(currentDistance, ESplineCoordinateSpace::Local);
