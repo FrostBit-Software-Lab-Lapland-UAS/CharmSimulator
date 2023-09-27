@@ -121,18 +121,24 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
 	TArray<UProceduralMeshComponent*> TunnelMeshes;
 
-	// FIST VERTICE DATA
+	// FIST VERTICE DATA OF THE WHOLE TUNNEL SECTION
 	TArray<FVector> firstFloorVertices;
 	TArray<FVector> firstRightVertices;
 	TArray<FVector> firstRoofVertices;
 	TArray<FVector> firstLeftVertices;
 
-	// LAST VERTICE DATA
+	// LAST VERTICE DATA OF THE MESH SECTION
 	TArray<FVector> lastFloorVertices;
 	TArray<FVector> lastRightVertices;
 	TArray<FVector> lastRoofVertices;
 	TArray<FVector> lastLeftVertices;
 	TArray<FVector> allFloorVertices;
+
+	// LAST VERTICE DATA OF THE WHOLE TUNNEL SECTION
+	TArray<FVector> tunnelLastFloorVertices;
+	TArray<FVector> tunnelLastRightVertices;
+	TArray<FVector> tunnelLastRoofVertices;
+	TArray<FVector> tunnelLastLeftVertices;
 
 	// LOOP VARIABLES
 	int32 meshLoopFirstIndex;

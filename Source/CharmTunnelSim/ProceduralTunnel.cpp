@@ -309,6 +309,14 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 	// Initialize variables for procedural generation loop
 	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex, interType);
 
+	// If true this means that end of tunnel will be recreated
+	if (lastIndex == 0 && !isSinglePointUpdate) {
+		tunnelLastFloorVertices.Empty();
+		tunnelLastRightVertices.Empty();
+		tunnelLastRoofVertices.Empty();
+		tunnelLastLeftVertices.Empty();
+	}
+
 	// Loop through the tunnel sections
 	for (int32 index = firstIndex; index <= lastIndex; index++) {
 		indexOfCurrentMesh = abs(index);
@@ -520,7 +528,7 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 				verticeArrayToUse = connectedActor->firstFloorVertices;
 			}
 			else {
-				verticeArrayToUse = connectedActor->lastFloorVertices;
+				verticeArrayToUse = connectedActor->tunnelLastFloorVertices;
 			}
             break;
         case 1:
@@ -528,7 +536,7 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 				verticeArrayToUse = connectedActor->firstRightVertices;
 			}
 			else {
-				verticeArrayToUse = connectedActor->lastLeftVertices;
+				verticeArrayToUse = connectedActor->tunnelLastLeftVertices;
 			}
             break;
         case 2:
@@ -536,7 +544,7 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 				verticeArrayToUse = connectedActor->firstRoofVertices;
 			}
 			else {
-				verticeArrayToUse = connectedActor->lastRoofVertices;
+				verticeArrayToUse = connectedActor->tunnelLastRoofVertices;
 			}
             break;
         case 3:
@@ -544,7 +552,7 @@ FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
 				verticeArrayToUse = connectedActor->firstLeftVertices;
 			}
 			else {
-				verticeArrayToUse = connectedActor->lastRightVertices;
+				verticeArrayToUse = connectedActor->tunnelLastRightVertices;
 			}
             break;
     }
@@ -673,18 +681,30 @@ void AProceduralTunnel::SaveEndMeshVerticeData(int32 surface, FVector vertice) {
 		case 0: // Ground
 			lastFloorVertices.Add(vertice);
 			currentMeshEndData.GroundVertives.Add(vertice);
+			if (indexOfCurrentMesh == 0) {
+				tunnelLastFloorVertices.Add(vertice);
+			}
 			break;
 		case 1: // Right wall
 			lastRightVertices.Add(vertice);
 			currentMeshEndData.WallVertices.Add(vertice);
+			if (indexOfCurrentMesh == 0) {
+				tunnelLastRightVertices.Add(vertice);
+			}
 			break;
 		case 2: // Roof
 			lastRoofVertices.Add(vertice);
 			currentMeshEndData.WallVertices.Add(vertice);
+			if (indexOfCurrentMesh == 0) {
+				tunnelLastRoofVertices.Add(vertice);
+			}
 			break;
 		case 3: // Left wall
 			lastLeftVertices.Add(vertice);
 			currentMeshEndData.WallVertices.Add(vertice);
+			if (indexOfCurrentMesh == 0) {
+				tunnelLastLeftVertices.Add(vertice);
+			}
 			break;
 	}
 }

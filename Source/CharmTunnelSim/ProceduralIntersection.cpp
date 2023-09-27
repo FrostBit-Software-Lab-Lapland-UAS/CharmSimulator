@@ -286,16 +286,16 @@ FVector AProceduralIntersection::GetVertice()
 		switch (surfaceIndex)
 		{
 		case 0:
-			targetArray = &(parentTunnel->lastFloorVertices);
+			targetArray = &(parentTunnel->tunnelLastFloorVertices);
 			break;
 		case 1:
-			targetArray = &(parentTunnel->lastRightVertices);
+			targetArray = &(parentTunnel->tunnelLastRightVertices);
 			break;
 		case 2:
-			targetArray = &(parentTunnel->lastRoofVertices);
+			targetArray = &(parentTunnel->tunnelLastRoofVertices);
 			break;
 		case 3:
-			targetArray = &(parentTunnel->lastLeftVertices);
+			targetArray = &(parentTunnel->tunnelLastLeftVertices);
 			break;
 		}
 
