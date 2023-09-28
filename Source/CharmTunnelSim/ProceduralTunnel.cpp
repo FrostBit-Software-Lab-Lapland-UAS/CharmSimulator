@@ -94,9 +94,9 @@ void AProceduralTunnel::DestroyLastMesh()
 void AProceduralTunnel::SnapToEndOfOtherSpline()
 {
 	// Prevent snapping if only 2 or less points in spline
-	if (SplineComponent->GetNumberOfSplinePoints() <= 2) {
+	/*if (SplineComponent->GetNumberOfSplinePoints() <= 2) {
 		return;
-	}
+	}*/
 
 	// Initialize variables to store the closest point, lowest distance, and closest tangent
 	FVector closestPoint = FVector(0, 0, 0);
@@ -110,7 +110,6 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProceduralTunnel::StaticClass(), FoundActors);
 
-	// If we are
 	bool connecToStart = false;
 
 	// Loop through all the found tunnel actors
@@ -148,7 +147,7 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			float dotProduct = FVector::DotProduct(currentEndForward, directionToOtherEnd);
 
 			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if (distance < maxDistanceToSnapSplineEnds && dotProduct >= 0)
+			if ((distance < maxDistanceToSnapSplineEnds && dotProduct >= 0) || comparedPointsLocation == lastPointLocation)
 			{
 				closestPoint = comparedPointsLocation;
 				closestTangent = spline->GetTangentAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
@@ -204,6 +203,8 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		else {
 			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent * -1, ESplineCoordinateSpace::World, true);
 		}
+		FVector direction = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
+		SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, closestPoint - direction * 600, ESplineCoordinateSpace::World, true);
 	}
 	// If no closest point was found, set the end connection status to false
 	else
@@ -310,7 +311,7 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex, interType);
 
 	// If true this means that end of tunnel will be recreated
-	if (lastIndex == 0 && !isSinglePointUpdate) {
+	if (lastIndex == 0 && (!isSinglePointUpdate || isIntersectionAdded)) {
 		tunnelLastFloorVertices.Empty();
 		tunnelLastRightVertices.Empty();
 		tunnelLastRoofVertices.Empty();
