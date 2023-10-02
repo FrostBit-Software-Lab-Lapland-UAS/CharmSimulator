@@ -56,8 +56,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	bool isUndo;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
-	bool isLoad;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	float isSelected;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deformation")
@@ -121,25 +119,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshes")
 	TArray<UProceduralMeshComponent*> TunnelMeshes;
 
-	// FIST VERTICE DATA OF THE WHOLE TUNNEL SECTION
-	TArray<FVector> firstFloorVertices;
-	TArray<FVector> firstRightVertices;
-	TArray<FVector> firstRoofVertices;
-	TArray<FVector> firstLeftVertices;
-
-	// LAST VERTICE DATA OF THE MESH SECTION
-	TArray<FVector> lastFloorVertices;
-	TArray<FVector> lastRightVertices;
-	TArray<FVector> lastRoofVertices;
-	TArray<FVector> lastLeftVertices;
-	TArray<FVector> allFloorVertices;
-
-	// LAST VERTICE DATA OF THE WHOLE TUNNEL SECTION
-	TArray<FVector> tunnelLastFloorVertices;
-	TArray<FVector> tunnelLastRightVertices;
-	TArray<FVector> tunnelLastRoofVertices;
-	TArray<FVector> tunnelLastLeftVertices;
-
 	// LOOP VARIABLES
 	int32 meshLoopFirstIndex;
 	int32 indexOfLastMesh;
@@ -155,6 +134,8 @@ public:
 	float horizontalPointSize;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	float verticalPointSize;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
+	FMeshSectionEnd tunnelStartMeshData;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	FMeshSectionEnd currentMeshEndData;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
@@ -196,7 +177,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType);
 	UFUNCTION(BlueprintCallable)
-	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load);
+	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset);
 
 	void AddOrRemoveSplinePoints(bool interSectionAdded);
 
@@ -213,6 +194,9 @@ public:
 	bool GetIsFirstLoopAround();
 	bool usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate);
 
+	// Transforms mesh end data vectors from other actors local space to other actor local space
+	TArray<FVector> TransformVectors(const TArray<FVector>& Vectors, AActor* SourceActor, AActor* TargetActor);
+
 	// Functions used to get intersections child tunnels start vertices to align with intersection
 	FVector RightTunnelStart();
 	FVector LeftTunnelStart();
@@ -228,7 +212,6 @@ public:
 	void InitializeStartVectorRightVectorAndValueInTexture();
 	void ClearArrays();
 
-	FVector GetVerticeForConnectedTunnel();
 	FVector GetVerticeForStartOfChildTunnel();
 	bool IsOnTheEndOfTunnel();
 	FVector GetVerticeForDefaultTunnel(bool isFirstLoopAround, bool isIntersectionAdded);
@@ -249,5 +232,5 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTangentsAndNormals();
 	UFUNCTION(BlueprintImplementableEvent)
-	void MakeMesh(int32 meshIndex, bool isHeightChanged, bool isFromLoad);
+	void MakeMesh(int32 meshIndex, bool isHeightChanged);
 };

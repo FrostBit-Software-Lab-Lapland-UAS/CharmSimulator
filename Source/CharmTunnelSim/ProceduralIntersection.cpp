@@ -255,19 +255,17 @@ int32 AProceduralIntersection::GetArrayIndex()
 	switch (intersectionType)
 	{
 	case IntersectionType::Right:
-		if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex; // Roof
-		else if (surfaceIndex == 3) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints; // Left 
-		else if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints; // Ground
+		if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints;
+		else return loopAroundTunnelCurrentIndex + numberOfVerticalPoints; // Roof
 		break;
 	case IntersectionType::Left:
 		if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex; // Ground
-		else if (surfaceIndex == 1) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints; // Right 
-		else if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints - numberOfVerticalPoints; // Roof
+		else return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints; 
 		break;
 	case IntersectionType::RightLeft:
 	case IntersectionType::All:
 		if (surfaceIndex == 0) return loopAroundTunnelCurrentIndex; // Ground
-		else if (surfaceIndex == 2) return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints; // Roof 
+		else return loopAroundTunnelCurrentIndex - numberOfHorizontalPoints + numberOfVerticalPoints; // Roof 
 		break;
 	}
 	return 0;
@@ -282,21 +280,11 @@ FVector AProceduralIntersection::GetVertice()
 	{
 		int32 arrayIndex = GetArrayIndex();
 		TArray<FVector>* targetArray = nullptr;
-
-		switch (surfaceIndex)
-		{
-		case 0:
-			targetArray = &(parentTunnel->tunnelLastFloorVertices);
-			break;
-		case 1:
-			targetArray = &(parentTunnel->tunnelLastRightVertices);
-			break;
-		case 2:
-			targetArray = &(parentTunnel->tunnelLastRoofVertices);
-			break;
-		case 3:
-			targetArray = &(parentTunnel->tunnelLastLeftVertices);
-			break;
+		if (surfaceIndex == 0) {
+			targetArray = &(parentTunnel->currentMeshEndData.GroundVertives);
+		}
+		else {
+			targetArray = &(parentTunnel->currentMeshEndData.WallVertices);
 		}
 
 		if (targetArray && targetArray->Num() > arrayIndex)
@@ -525,8 +513,8 @@ FVector AProceduralIntersection::GetLeftVertice()
 	vertice.Y -= deform;      // ADD DEFORM
 	// Prevent deformation on last index. Because this would affect the grounds deformation
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints - 1) {
-		vertice.Z = TransformVertex(parentTunnel->lastLeftVertices[parentTunnel->lastLeftVertices.Num() - 1]).Z;
-		vertice.Y = TransformVertex(parentTunnel->lastLeftVertices[parentTunnel->lastLeftVertices.Num() - 1]).Y;
+		vertice.Z = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Z;
+		vertice.Y = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Y;
 	}
 
 	// Return the position vector of the vertice.

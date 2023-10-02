@@ -10,6 +10,8 @@
 #include "Math/UnrealMathUtility.h"
 #include "Components/StaticMeshComponent.h"
 #include "Math/UnrealMathVectorCommon.h"
+#include "Algo/Reverse.h"
+
 using namespace std;
 
 // Sets default values
@@ -93,11 +95,6 @@ void AProceduralTunnel::DestroyLastMesh()
 // Function that connects the end of the current tunnel to the end of another tunnel spline
 void AProceduralTunnel::SnapToEndOfOtherSpline()
 {
-	// Prevent snapping if only 2 or less points in spline
-	/*if (SplineComponent->GetNumberOfSplinePoints() <= 2) {
-		return;
-	}*/
-
 	// Initialize variables to store the closest point, lowest distance, and closest tangent
 	FVector closestPoint = FVector(0, 0, 0);
 	FVector closestTangent;
@@ -197,6 +194,8 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		isEndConnected = true;
 		connectedActor->isEndConnected = true; // Set the closest proceduralTunnel's isEndConnected to true
 		SplineComponent->SetLocationAtSplinePoint(lastIndex, closestPoint, ESplineCoordinateSpace::World, true);
+		//SplinePointIndicator->SetWorldLocation(closestPoint);
+		//SplineComponent->AddSplinePoint(closestPoint, ESplineCoordinateSpace::World, true);
 		if (connecToStart) {
 			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent, ESplineCoordinateSpace::World, true);
 		}
@@ -204,7 +203,8 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent * -1, ESplineCoordinateSpace::World, true);
 		}
 		FVector direction = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
-		SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, closestPoint - direction * 600, ESplineCoordinateSpace::World, true);
+		FVector secondPointLocation = SplineComponent->GetLocationAtSplinePoint(lastIndex - 1, ESplineCoordinateSpace::World);
+		SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, FMath::Lerp(closestPoint - direction * 600, secondPointLocation, 0.2f), ESplineCoordinateSpace::World, true);	
 	}
 	// If no closest point was found, set the end connection status to false
 	else
@@ -216,16 +216,15 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 // This will control the addition of new spline points on drag event and remove when undoing or reseting
 void AProceduralTunnel::ControlSplinePoints(bool interSectionAdded)
 {
-	
 	if(!isReset) 
 	{
 		// When end is connected or we are undoing tunnel we dont want to enter here
-		if (!isEndConnected && !isUndo)
+		if (/*!isEndConnected &&*/ !isUndo)
 		{ 
 			AddOrRemoveSplinePoints(interSectionAdded);
 		}
 		// If we are undoing tunnel and tunnel is long enough we will destroy last mesh part of this tunnel
-		else if (!isEndConnected && isUndo && SplineComponent->GetNumberOfSplinePoints() >= 2)
+		else if (/*!isEndConnected && */ isUndo && SplineComponent->GetNumberOfSplinePoints() >= 2)
 		{
 			TunnelMeshes.Last()->DestroyComponent();
 			TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
@@ -310,14 +309,6 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 	// Initialize variables for procedural generation loop
 	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex, interType);
 
-	// If true this means that end of tunnel will be recreated
-	if (lastIndex == 0 && (!isSinglePointUpdate || isIntersectionAdded)) {
-		tunnelLastFloorVertices.Empty();
-		tunnelLastRightVertices.Empty();
-		tunnelLastRoofVertices.Empty();
-		tunnelLastLeftVertices.Empty();
-	}
-
 	// Loop through the tunnel sections
 	for (int32 index = firstIndex; index <= lastIndex; index++) {
 		indexOfCurrentMesh = abs(index);
@@ -339,12 +330,7 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 			MakeMeshTangentsAndNormals();
 
 			// Build the mesh with the generated data
-			MakeMesh(indexOfCurrentMesh, isSinglePointUpdate, isLoad);
-
-			// Append vertices if required for loading or resetting
-			if (isLoad || isReset) {
-				allFloorVertices.Append(groundVertices);
-			}
+			MakeMesh(indexOfCurrentMesh, isSinglePointUpdate);
 		}
 	}
 }
@@ -381,21 +367,78 @@ void AProceduralTunnel::GenerateVerticesAndUVs(bool isSinglePointUpdate, bool is
 	for (stepIndexInsideMesh = 0; stepIndexInsideMesh <= stepCountToMakeCurrentMesh; stepIndexInsideMesh++) {
 		// Clear arrays holding vertice data of start of tunnel
 		if (IsFirstLoopOfWholeTunnel()) {
-			firstFloorVertices.Empty();
-			firstRightVertices.Empty();
-			firstRoofVertices.Empty();
-			firstLeftVertices.Empty();
+			tunnelStartMeshData.Reset();
 		}
 		// If true we will accuire previous mesh sections end vertice data to make seamless connection between mesh sections 
 		if (usePreviousEndVertices(isIntersectionAdded, isSinglePointUpdate)) {
 			UsePreviousEndVerticesData(isSinglePointUpdate);
+		} 
+		
+
+		else if (IsOnTheEndOfTunnel() && indexOfLastMesh == 0 && !isSinglePointUpdate && IsValid(connectedActor) && isEndConnected) {
+			if (connectedActor->isFirstTunnel) {
+				TArray<FVector> ground = TransformVectors(connectedActor->tunnelStartMeshData.GroundVertives, connectedActor, this);
+				TArray<FVector> walls = TransformVectors(connectedActor->tunnelStartMeshData.WallVertices, connectedActor, this);
+				groundVertices.Append(ground);
+				wallVertices.Append(walls);
+				currentMeshEndData.GroundVertives = ground;
+				currentMeshEndData.WallVertices = walls;
+			}
+			else {
+				TArray<FVector> ground = TransformVectors(connectedActor->currentMeshEndData.GroundVertives, connectedActor, this);
+				TArray<FVector> walls = TransformVectors(connectedActor->currentMeshEndData.WallVertices, connectedActor, this);
+				Algo::Reverse(ground);
+				Algo::Reverse(walls);
+				groundVertices.Append(ground);
+				wallVertices.Append(walls);
+				currentMeshEndData.GroundVertives = ground; 
+				currentMeshEndData.WallVertices = walls;
+			}
 		}
+
+
 		else {
 			// This is default way of creting vertices around the tunnel
 			GenerateVerticesForCurrentLoop(isSinglePointUpdate, isIntersectionAdded, lastIndex);
 		}
 	}
 }
+
+// Transforms mesh end data vectors from other actors local space to other actor local space
+TArray<FVector> AProceduralTunnel::TransformVectors(const TArray<FVector>& Vectors, AActor* SourceActor, AActor* TargetActor)
+{
+	TArray<FVector> TransformedVectors;
+
+	if (!SourceActor || !TargetActor)
+	{
+		// Log an error or handle this case as per your needs.
+		UE_LOG(LogTemp, Error, TEXT("Source or Target actor is null!"));
+		return TransformedVectors; // Return an empty array.
+	}
+
+	// Get the transform of the source and target actors.
+	FTransform SourceTransform = SourceActor->GetTransform();
+	FTransform TargetTransform = TargetActor->GetTransform();
+
+	// Reserve space in TransformedVectors to avoid reallocations.
+	TransformedVectors.Reserve(Vectors.Num());
+
+	// Loop through each vector in the input array.
+	for (const FVector& Vec : Vectors)
+	{
+		// Transform the vertex from the connected actor's transform to world transform.
+		FVector WorldVec = UKismetMathLibrary::TransformLocation(SourceTransform, Vec);
+
+		// Transform the vertex from world transform to local transform of this tunnel mesh.
+		FVector TargetLocalVec = UKismetMathLibrary::InverseTransformLocation(TargetTransform, WorldVec);
+
+		// Add the transformed vector to the output array.
+		TransformedVectors.Add(TargetLocalVec);
+	}
+
+	return TransformedVectors;
+}
+
 
 // Returns boolean if we should use previous mesh section end data to make seamless connection between sections
 bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate) {
@@ -461,10 +504,6 @@ void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate,
 		if (isFirstLoopAround && tunnelType != TunnelType::DefaultTunnel) {
 			latestVertice = GetVerticeForStartOfChildTunnel();
 		}
-		// If the tunnel is connected to other tunnel and we are in the end of the tunnel and we are not adjusting singlepoint
-		else if (IsOnTheEndOfTunnel() && indexOfLastMesh == 0 && !isSinglePointUpdate && IsValid(connectedActor) && isEndConnected) {
-			latestVertice = GetVerticeForConnectedTunnel();
-		}
 		else {
 			// Get the vertice for a default tunnel
 			latestVertice = GetVerticeForDefaultTunnel(isFirstLoopAround, isIntersectionAdded);
@@ -517,60 +556,6 @@ bool AProceduralTunnel::IsOnTheEndOfTunnel() {
 bool AProceduralTunnel::IsOnTheEndOfCurrentMeshSection() {
 	// Returns true if the current loop index is equal to the last loop index, indicating the end of the current mesh.
 	return stepIndexInsideMesh == stepCountToMakeCurrentMesh;
-}
-
-// Get the vertices from the connected tunnel mesh based on the current surface index.
-FVector AProceduralTunnel::GetVerticeForConnectedTunnel() {
-	TArray<FVector> verticeArrayToUse;
-
-    switch (surfaceIndex) {
-        case 0:
-			if (connectedActor->isFirstTunnel) {
-				verticeArrayToUse = connectedActor->firstFloorVertices;
-			}
-			else {
-				verticeArrayToUse = connectedActor->tunnelLastFloorVertices;
-			}
-            break;
-        case 1:
-			if (connectedActor->isFirstTunnel) {
-				verticeArrayToUse = connectedActor->firstRightVertices;
-			}
-			else {
-				verticeArrayToUse = connectedActor->tunnelLastLeftVertices;
-			}
-            break;
-        case 2:
-			if (connectedActor->isFirstTunnel) {
-				verticeArrayToUse = connectedActor->firstRoofVertices;
-			}
-			else {
-				verticeArrayToUse = connectedActor->tunnelLastRoofVertices;
-			}
-            break;
-        case 3:
-			if (connectedActor->isFirstTunnel) {
-				verticeArrayToUse = connectedActor->firstLeftVertices;
-			}
-			else {
-				verticeArrayToUse = connectedActor->tunnelLastRightVertices;
-			}
-            break;
-    }
-	// Get the specific vertex to use from the vertex array.
-	FVector verticeToUse;
-	if (connectedActor->isFirstTunnel) {
-		verticeToUse = verticeArrayToUse[verticeIndex];
-	}
-	else {
-		verticeToUse = verticeArrayToUse[FMath::Clamp(verticeArrayToUse.Num() - (1 + verticeIndex), 0, verticeArrayToUse.Num() - 1)];
-	}    
-
-	// Transform the vertex from the connected actor's transform to world transform.
-    verticeToUse = UKismetMathLibrary::TransformLocation(connectedActor->GetTransform(), verticeToUse); 
-
-	// Transform the vertex from world transform to local transform of this tunnel mesh.
-    return UKismetMathLibrary::InverseTransformLocation(this->GetTransform(), verticeToUse); 
 }
 
 // Returns the appropriate vertice for a default tunnel segment based on the surface index, whether it's the first loop around the tunnel, and if there's an intersection added.
@@ -659,54 +644,22 @@ bool AProceduralTunnel::IsFirstLoopOfWholeTunnel() {
 // Stores the vertices of the first loop in the tunnel based on the provided surface index.
 void AProceduralTunnel::SaveFirstLoopVerticeData(int32 surface, FVector vertice) {
 	// Selects the appropriate array to save the vertex data based on the surface index.
-	switch (surface) {
-	case 0:
-		firstFloorVertices.Add(vertice);
-		break;
-	case 1:
-		firstRightVertices.Add(vertice); 
-		break;
-	case 2:
-		firstRoofVertices.Add(vertice);
-		break;
-	case 3:
-		firstLeftVertices.Add(vertice);
-		break;
+	if (surface == 0) {
+		tunnelStartMeshData.GroundVertives.Add(vertice);
+	}
+	else {
+		tunnelStartMeshData.WallVertices.Add(vertice);
 	}
 }
 
 // Saves the end mesh vertice data based on the provided surface index and vertice position.
 void AProceduralTunnel::SaveEndMeshVerticeData(int32 surface, FVector vertice) {
 	// Switch on the surface index to determine which part of the tunnel to update.
-	switch (surface) {
-		case 0: // Ground
-			lastFloorVertices.Add(vertice);
-			currentMeshEndData.GroundVertives.Add(vertice);
-			if (indexOfCurrentMesh == 0) {
-				tunnelLastFloorVertices.Add(vertice);
-			}
-			break;
-		case 1: // Right wall
-			lastRightVertices.Add(vertice);
-			currentMeshEndData.WallVertices.Add(vertice);
-			if (indexOfCurrentMesh == 0) {
-				tunnelLastRightVertices.Add(vertice);
-			}
-			break;
-		case 2: // Roof
-			lastRoofVertices.Add(vertice);
-			currentMeshEndData.WallVertices.Add(vertice);
-			if (indexOfCurrentMesh == 0) {
-				tunnelLastRoofVertices.Add(vertice);
-			}
-			break;
-		case 3: // Left wall
-			lastLeftVertices.Add(vertice);
-			currentMeshEndData.WallVertices.Add(vertice);
-			if (indexOfCurrentMesh == 0) {
-				tunnelLastLeftVertices.Add(vertice);
-			}
-			break;
+	if (surface == 0) {
+		currentMeshEndData.GroundVertives.Add(vertice);
+	}
+	else {
+		currentMeshEndData.WallVertices.Add(vertice);
 	}
 }
 
@@ -721,7 +674,7 @@ FVector AProceduralTunnel::RightTunnelStart()
 		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
-		vertice = parentsParentTunnel->lastRightVertices[verticeIndex];
+		vertice = parentsParentTunnel->currentMeshEndData.WallVertices[verticeIndex];
 		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		break;
 	case 2:
@@ -773,7 +726,7 @@ FVector AProceduralTunnel::LeftTunnelStart()
 		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 3:
-		vertice = parentsParentTunnel->lastLeftVertices[verticeIndex];
+		vertice = parentsParentTunnel->currentMeshEndData.WallVertices[loopAroundTunnelCurrentIndex - numberOfHorizontalPoints];
 		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		break;
 	default:
@@ -795,7 +748,7 @@ FVector AProceduralTunnel::StraightTunnelStart()
 	case 1:
 		if (IsValid(rightSideTunnel))
 		{
-			vertice = rightSideTunnel->firstLeftVertices[rightSideTunnel->firstLeftVertices.Num() - (1 + verticeIndex)];
+			vertice = rightSideTunnel->tunnelStartMeshData.WallVertices[rightSideTunnel->tunnelStartMeshData.WallVertices.Num() - (1 + verticeIndex)];
 			return TransformVerticeToLocalSpace(rightSideTunnel, vertice);
 			break;
 		}
@@ -812,7 +765,7 @@ FVector AProceduralTunnel::StraightTunnelStart()
 	case 3:
 		if (IsValid(leftSideTunnel))
 		{
-			vertice = leftSideTunnel->firstRightVertices[leftSideTunnel->firstRightVertices.Num() - (1 + verticeIndex)];
+			vertice = leftSideTunnel->tunnelStartMeshData.WallVertices[numberOfVerticalPoints - verticeIndex - 1];
 			return TransformVerticeToLocalSpace(leftSideTunnel, vertice);
 			break;
 		}
@@ -1261,14 +1214,10 @@ void AProceduralTunnel::ClearArrays () {
 	groundVertices.Empty();
 	groundTriangles.Empty();
 	groundUV.Empty();
-	lastRightVertices.Empty();
-	lastRoofVertices.Empty();
-	lastLeftVertices.Empty();
-	lastFloorVertices.Empty();
 }
 
 // These are values used when tunnel construction is called
-void AProceduralTunnel::SetValuesForGeneratingTunnel(float selected, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset, bool load) 
+void AProceduralTunnel::SetValuesForGeneratingTunnel(float selected, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset) 
 {
 	isSelected = selected;
 	isUndo = undo;
@@ -1279,7 +1228,4 @@ void AProceduralTunnel::SetValuesForGeneratingTunnel(float selected, bool undo, 
 	floorDeformation = sVariation.X;
 	wallDeformation = sVariation.Y;
 	isReset = reset;
-	isLoad = load;
 }
-
-

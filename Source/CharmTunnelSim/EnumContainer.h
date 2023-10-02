@@ -36,6 +36,11 @@ struct FMeshSectionEnd
 	TArray<FVector2D> GroundUV;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FVector2D> WallUV;
+
+	void Reset() {
+		GroundVertives.Empty();
+		WallVertices.Empty();
+	}
 };
 
 USTRUCT(Blueprintable)
