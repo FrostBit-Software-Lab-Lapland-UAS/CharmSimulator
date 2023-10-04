@@ -140,8 +140,6 @@ public:
 	FMeshSectionEnd currentMeshEndData;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	TArray<FMeshSectionEnd> meshEnds;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	TArray<FMeshSectionEnd> meshEndsBeforeIntersection;
 	int32 forwardStepInDeformTexture;
 	FVector firstVertice;
 	FVector latestVertice;
@@ -171,7 +169,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SnapToEndOfOtherSpline();
 	UFUNCTION(BlueprintCallable)
-	void ControlSplinePoints(bool bInterSectionAdded = false);
+	void ControlSplinePoints();
 	UFUNCTION(BlueprintCallable)
 	int32 SetUpProceduralGeneratorLoopParams();
 	UFUNCTION(BlueprintCallable)
@@ -179,7 +177,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset);
 
-	void AddOrRemoveSplinePoints(bool interSectionAdded);
+	void AddOrRemoveSplinePoints();
 
 	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType);
 	void CalculateStepsInTunnelSection();

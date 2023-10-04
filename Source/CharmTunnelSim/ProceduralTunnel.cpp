@@ -214,14 +214,14 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 }
 
 // This will control the addition of new spline points on drag event and remove when undoing or reseting
-void AProceduralTunnel::ControlSplinePoints(bool interSectionAdded)
+void AProceduralTunnel::ControlSplinePoints()
 {
 	if(!isReset) 
 	{
 		// When end is connected or we are undoing tunnel we dont want to enter here
 		if (/*!isEndConnected &&*/ !isUndo)
 		{ 
-			AddOrRemoveSplinePoints(interSectionAdded);
+			AddOrRemoveSplinePoints();
 		}
 		// If we are undoing tunnel and tunnel is long enough we will destroy last mesh part of this tunnel
 		else if (/*!isEndConnected && */ isUndo && SplineComponent->GetNumberOfSplinePoints() >= 2)
@@ -244,7 +244,7 @@ void AProceduralTunnel::ControlSplinePoints(bool interSectionAdded)
 }
 
 // Adds or removes spline points depending on the distance of dragged spline point and previous spline point
-void AProceduralTunnel::AddOrRemoveSplinePoints(bool interSectionAdded)
+void AProceduralTunnel::AddOrRemoveSplinePoints()
 {
 	float maxDistanceBetweenPoints = 750; //1000 original WAS 500 NOW
 	float pointOffSet = 200;
@@ -262,10 +262,6 @@ void AProceduralTunnel::AddOrRemoveSplinePoints(bool interSectionAdded)
 	float previousDistance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(lastIndex - 1);
 	float distanceBetweenPoints = currentDistance - previousDistance;
 	int32 pointsToFitBetween = FMath::FloorToInt(distanceBetweenPoints / maxDistanceBetweenPoints);
-
-	if (interSectionAdded) {
-		pointsToFitBetween = pointsToFitBetween - 2;
-	}
 
 	if (pointsToFitBetween != 0) 
 	{
