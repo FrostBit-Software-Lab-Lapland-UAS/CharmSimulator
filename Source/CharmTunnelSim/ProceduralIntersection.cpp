@@ -34,9 +34,16 @@ void AProceduralIntersection::SetValues(FVector2D scale, IntersectionType type, 
 	surfaceVariation = variation;
 	intersectionType = type;
 	if (!update) {
-		parentTunnel = parent;
-		numberOfHorizontalPoints = parent->numberOfHorizontalPoints;
-		numberOfVerticalPoints = parent->numberOfVerticalPoints;
+		if (IsValid(parent)) {
+			parentTunnel = parent;
+			numberOfHorizontalPoints = parent->numberOfHorizontalPoints;
+			numberOfVerticalPoints = parent->numberOfVerticalPoints;
+		}
+		else {
+			numberOfHorizontalPoints = 20;
+			numberOfVerticalPoints = 20;
+		}
+		
 		switch (intersectionType)
 		{
 		case IntersectionType::Right:
@@ -276,7 +283,7 @@ FVector AProceduralIntersection::GetVertice()
 {
 	FVector vertice;
 
-	if (forwarLoopIndex == 0)
+	if (forwarLoopIndex == 0 && IsValid(parentTunnel))
 	{
 		int32 arrayIndex = GetArrayIndex();
 		TArray<FVector>* targetArray = nullptr;
@@ -513,8 +520,15 @@ FVector AProceduralIntersection::GetLeftVertice()
 	vertice.Y -= deform;      // ADD DEFORM
 	// Prevent deformation on last index. Because this would affect the grounds deformation
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints - 1) {
-		vertice.Z = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Z;
-		vertice.Y = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Y;
+		if (IsValid(parentTunnel)) {
+			vertice.Z = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Z;
+			vertice.Y = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Y;
+		}
+		else if (groundVertices.Num() > 0) {
+			vertice.Z = groundVertices[0].Z;
+			vertice.Y = groundVertices[0].Y;
+		}
+		
 	}
 
 	// Return the position vector of the vertice.

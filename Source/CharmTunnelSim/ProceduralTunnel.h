@@ -109,7 +109,9 @@ public:
 	bool isEndConnected;
 
 	AProceduralTunnel* connectedActor;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parent", meta = (ExposeOnSpawn = "true"))
 	AProceduralIntersection* parentIntersection;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parent", meta = (ExposeOnSpawn = "true"))
 	AProceduralTunnel* parentsParentTunnel;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	AProceduralTunnel* rightSideTunnel;

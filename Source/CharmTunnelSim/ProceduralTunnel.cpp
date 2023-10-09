@@ -26,6 +26,12 @@ AProceduralTunnel::AProceduralTunnel()
 		// -1 because when tunnel round loop is created it starts with index 0
 		loopAroundTunnelLastIndex = numberOfVerticalPoints + numberOfHorizontalPoints - 1;
 	}
+	else {
+		numberOfVerticalPoints = 20;
+		numberOfHorizontalPoints = 20;
+		// -1 because when tunnel round loop is created it starts with index 0
+		loopAroundTunnelLastIndex = 80 - 1;
+	}
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>("Root Scene Component");
 	RootComponent->SetMobility(EComponentMobility::Static);
@@ -337,10 +343,11 @@ void AProceduralTunnel::InitializeProceduralGenerationLoopVariables(int32 firstI
 	meshLoopFirstIndex = abs(firstIndex);
 	indexOfLastMesh = abs(lastIndex);
 
-	// Check for a parent actor and set parentIntersection and parentsParentTunnel accordingly
-	if (IsChildActor()) {
+	if (IsValid(parentIntersection)) {
 		parentIntersection = Cast<AProceduralIntersection>(GetParentActor());
-		parentsParentTunnel = Cast<AProceduralTunnel>(parentIntersection->parentTunnel);
+		if (IsValid(parentIntersection->parentTunnel)) {
+			parentsParentTunnel = Cast<AProceduralTunnel>(parentIntersection->parentTunnel);
+		}
 	}
 }
 
@@ -670,8 +677,13 @@ FVector AProceduralTunnel::RightTunnelStart()
 		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 1:
-		vertice = parentsParentTunnel->currentMeshEndData.WallVertices[verticeIndex];
-		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
+		if (IsValid(parentsParentTunnel)) {
+			vertice = parentsParentTunnel->currentMeshEndData.WallVertices[verticeIndex];
+			return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
+		}
+		else {
+			return GetVerticeOnRightWall(true, false);
+		}
 		break;
 	case 2:
 		vertice = parentIntersection->lastRightRoofVertices[verticeIndex];
@@ -722,8 +734,13 @@ FVector AProceduralTunnel::LeftTunnelStart()
 		return TransformVerticeToLocalSpace(parentIntersection, vertice);
 		break;
 	case 3:
-		vertice = parentsParentTunnel->currentMeshEndData.WallVertices[loopAroundTunnelCurrentIndex - numberOfHorizontalPoints];
-		return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
+		if (IsValid(parentsParentTunnel)) {
+			vertice = parentsParentTunnel->currentMeshEndData.WallVertices[loopAroundTunnelCurrentIndex - numberOfHorizontalPoints];
+			return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
+		}
+		else {
+			return GetVerticeOnLeftWall(true, false);
+		}
 		break;
 	default:
 		return FVector(0,0,0);
