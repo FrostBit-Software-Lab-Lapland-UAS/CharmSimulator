@@ -44,13 +44,10 @@ protected:
 public:	
 	//DEFAULT VALUES
 	FVector wallStartVertice;
-	float maxDistanceToSnapSplineEnds = 600.0f;
+	float maxDistanceToSnapSplineEnds = 400.0f;
 	float stepSizeOnSpline = 50.0f; ///100 original lower the number the higher the resolution
 	float lastStepSizeOnSpline = 0.0f;
-	TArray<AStaticMeshActor*> staticMeshes;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
-	bool isFirstTunnel = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
 	bool isReset;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DEFAULT VALUES")
@@ -111,6 +108,8 @@ public:
 	AProceduralTunnel* connectedActor;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parent", meta = (ExposeOnSpawn = "true"))
 	AProceduralIntersection* parentIntersection;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Intersection")
+	AProceduralIntersection* intersection;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parent", meta = (ExposeOnSpawn = "true"))
 	AProceduralTunnel* parentsParentTunnel;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
@@ -161,9 +160,7 @@ public:
 	
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	TEnumAsByte<TunnelType> tunnelType = TunnelType::DefaultTunnel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	TEnumAsByte<IntersectionType> intersectionType = IntersectionType::Right;
+	TEnumAsByte<TunnelType> tunnelType = TunnelType::StartTunnel;
 
 
 	virtual void Tick(float DeltaTime) override;
@@ -175,24 +172,24 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int32 SetUpProceduralGeneratorLoopParams();
 	UFUNCTION(BlueprintCallable)
-	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType);
+	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate, bool isIntersectionAdded);
 	UFUNCTION(BlueprintCallable)
 	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset);
 
 	void AddOrRemoveSplinePoints();
 
-	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType);
+	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex);
 	void CalculateStepsInTunnelSection();
 	void ResetCurrentMeshEndData();
-	void GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
-	void UsePreviousEndVerticesData(bool isSinglePointUpdate);
-	void GenerateVerticesForCurrentLoop(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex);
+	void GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isIntersectionAdded, int32 lastIndex);
+	void GetMeshEndData(bool isMeshPartUpdate);
+	void GenerateVerticesForCurrentLoop(bool isMeshPartUpdate, int32 lastIndex);
 
 	int32 GetSurfaceIndex();
 	int32 GetIndexOfVertice();
 
 	bool GetIsFirstLoopAround();
-	bool usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate);
+	bool ShouldUseMeshEndData (bool isIntersectionAdded, bool isMeshPartUpdate);
 
 	// Transforms mesh end data vectors from other actors local space to other actor local space
 	TArray<FVector> TransformVectors(const TArray<FVector>& Vectors, AActor* SourceActor, AActor* TargetActor);
@@ -205,16 +202,16 @@ public:
 
 	// Basic functions to get vertice locations on different surfaces
 	FVector GetVerticeOnGround();
-	FVector GetVerticeOnRightWall(bool isFirstLoopARound, bool isIntersectionAdded);
+	FVector GetVerticeOnRightWall(bool isFirstLoopARound);
 	FVector GetVerticeOnRoof();
-	FVector GetVerticeOnLeftWall(bool isFirstLoopARound, bool isIntersectionAdded);
+	FVector GetVerticeOnLeftWall(bool isFirstLoopARound);
 
 	void InitializeStartVectorRightVectorAndValueInTexture();
 	void ClearArrays();
 
 	FVector GetVerticeForStartOfChildTunnel();
 	bool IsOnTheEndOfTunnel();
-	FVector GetVerticeForDefaultTunnel(bool isFirstLoopAround, bool isIntersectionAdded);
+	FVector GetVerticeForDefaultTunnel(bool isFirstLoopAround);
 	FVector AdjustLatestVerticeForOverlap(FVector latestVertice, int32 surfaceIndex);
 	void SaveFirstVerticeIfNeeded(FVector latestVertice);
 	void AddCreatedVerticeToArrays(FVector latestVertice, int32 surfaceIndex);
@@ -232,5 +229,5 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTangentsAndNormals();
 	UFUNCTION(BlueprintImplementableEvent)
-	void MakeMesh(int32 meshIndex, bool isHeightChanged);
+	void MakeMesh(int32 meshPartIndex, bool bMeshPartOfTunnelIsUpdated);
 };

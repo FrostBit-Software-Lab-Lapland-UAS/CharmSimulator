@@ -33,15 +33,14 @@ void AProceduralIntersection::SetValues(FVector2D scale, IntersectionType type, 
 	localScale = scale;
 	surfaceVariation = variation;
 	intersectionType = type;
+	if (IsValid(parent)) {
+		UE_LOG(LogTemp, Warning, TEXT("Intersections parent is valid"));
+		parentTunnel = parent;
+	}
 	if (!update) {
 		if (IsValid(parent)) {
-			parentTunnel = parent;
 			numberOfHorizontalPoints = parent->numberOfHorizontalPoints;
 			numberOfVerticalPoints = parent->numberOfVerticalPoints;
-		}
-		else {
-			numberOfHorizontalPoints = 20;
-			numberOfVerticalPoints = 20;
 		}
 		
 		switch (intersectionType)
@@ -288,10 +287,10 @@ FVector AProceduralIntersection::GetVertice()
 		int32 arrayIndex = GetArrayIndex();
 		TArray<FVector>* targetArray = nullptr;
 		if (surfaceIndex == 0) {
-			targetArray = &(parentTunnel->currentMeshEndData.GroundVertives);
+			targetArray = &(parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].GroundVertives);
 		}
 		else {
-			targetArray = &(parentTunnel->currentMeshEndData.WallVertices);
+			targetArray = &(parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].WallVertices);
 		}
 
 		if (targetArray && targetArray->Num() > arrayIndex)
@@ -521,8 +520,9 @@ FVector AProceduralIntersection::GetLeftVertice()
 	// Prevent deformation on last index. Because this would affect the grounds deformation
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints - 1) {
 		if (IsValid(parentTunnel)) {
-			vertice.Z = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Z;
-			vertice.Y = TransformVertex(parentTunnel->currentMeshEndData.WallVertices[parentTunnel->currentMeshEndData.WallVertices.Num() - 1]).Y;
+			
+			vertice.Z = TransformVertex(parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].WallVertices[parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].WallVertices.Num() - 1]).Z;
+			vertice.Y = TransformVertex(parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].WallVertices[parentTunnel->meshEnds[parentTunnel->meshEnds.Num() - 1].WallVertices.Num() - 1]).Y;
 		}
 		else if (groundVertices.Num() > 0) {
 			vertice.Z = groundVertices[0].Z;

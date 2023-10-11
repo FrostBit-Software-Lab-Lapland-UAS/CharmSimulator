@@ -21,7 +21,7 @@ enum TunnelType
 	RightTunnel,
 	LeftTunnel,
 	StraightTunnel,
-	DefaultTunnel
+	StartTunnel
 };
 
 USTRUCT(Blueprintable)

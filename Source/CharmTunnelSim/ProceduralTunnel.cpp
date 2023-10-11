@@ -127,7 +127,7 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		{
 			// Get the last spline point of the other tunnel
 			int32 SplinePointIndexToSnap;
-			if (proceduralTunnel->isFirstTunnel)
+			if (proceduralTunnel->tunnelType == TunnelType::StartTunnel)
 			{
 				SplinePointIndexToSnap = 0;
 			}
@@ -237,7 +237,7 @@ void AProceduralTunnel::ControlSplinePoints()
 			meshEnds.RemoveAt(meshEnds.Num()-1);
 		}
 	} 
-	// When resetting remove all the mesh components so that when this tunnel part is build again it will have default starting size
+	// When resetting remove all the mesh components so the whole tunnel is rebuild
 	else 
 	{
 		for(UProceduralMeshComponent* mesh : TunnelMeshes) 
@@ -292,7 +292,7 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	}
 }
 
-// Returns negative value of how many meshes we need to remake
+// Returns negative value of how many meshes we need to remakes
 int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
 {
 	float tunnelWidth = widthScale * 100.0f;
@@ -307,9 +307,9 @@ int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
 }
 
 // Regenerate section of tunnel. One section is space between 2 back to back spline points
-void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isSinglePointUpdate, bool isIntersectionAdded, IntersectionType interType) {
+void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate, bool isIntersectionAdded) {
 	// Initialize variables for procedural generation loop
-	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex, interType);
+	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex);
 
 	// Loop through the tunnel sections
 	for (int32 index = firstIndex; index <= lastIndex; index++) {
@@ -325,21 +325,20 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 			ResetCurrentMeshEndData();
 
 			// Generate vertices and UVs for the tunnel mesh
-			GenerateVerticesAndUVs(isSinglePointUpdate, isIntersectionAdded, lastIndex);
+			GenerateVerticesAndUVs(isMeshPartUpdate, isIntersectionAdded, lastIndex);
 
 			// Create the mesh triangles, tangents, and normals
 			MakeMeshTriangles();
 			MakeMeshTangentsAndNormals();
 
 			// Build the mesh with the generated data
-			MakeMesh(indexOfCurrentMesh, isSinglePointUpdate);
+			MakeMesh(indexOfCurrentMesh, isMeshPartUpdate);
 		}
 	}
 }
 
 // Initialize variables required for the procedural generation loop
-void AProceduralTunnel::InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex, IntersectionType interType) {
-	intersectionType = interType;
+void AProceduralTunnel::InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex) {
 	meshLoopFirstIndex = abs(firstIndex);
 	indexOfLastMesh = abs(lastIndex);
 
@@ -353,10 +352,12 @@ void AProceduralTunnel::InitializeProceduralGenerationLoopVariables(int32 firstI
 
 // Calculate how many steps we can fit between selected tunnel section also calculate how big the last step can be
 void AProceduralTunnel::CalculateStepsInTunnelSection() {
-	float latestLocation = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 1));
-	float previousLocation = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 2));
-	stepCountToMakeCurrentMesh = FMath::Floor((latestLocation - previousLocation) / horizontalPointSize);
-	float remainder = ((latestLocation - previousLocation) / horizontalPointSize) - (float)stepCountToMakeCurrentMesh;
+	// End spline point distance on spline
+	float locationOnSplineWhereMeshEnds = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 1));
+	// Starting spline point distance on spline
+	float locationOnSplineWhereMeshStarts = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - (indexOfCurrentMesh + 2));
+	stepCountToMakeCurrentMesh = FMath::Floor((locationOnSplineWhereMeshEnds - locationOnSplineWhereMeshStarts) / horizontalPointSize);
+	float remainder = ((locationOnSplineWhereMeshEnds - locationOnSplineWhereMeshStarts) / horizontalPointSize) - (float)stepCountToMakeCurrentMesh;
 	lastStepSizeOnSpline = horizontalPointSize * remainder + horizontalPointSize;
 }
 
@@ -366,20 +367,20 @@ void AProceduralTunnel::ResetCurrentMeshEndData() {
 }
 
 // Generate vertices and UVs for the tunnel mesh
-void AProceduralTunnel::GenerateVerticesAndUVs(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isIntersectionAdded, int32 lastIndex) {
 	for (stepIndexInsideMesh = 0; stepIndexInsideMesh <= stepCountToMakeCurrentMesh; stepIndexInsideMesh++) {
 		// Clear arrays holding vertice data of start of tunnel
 		if (IsFirstLoopOfWholeTunnel()) {
 			tunnelStartMeshData.Reset();
 		}
 		// If true we will accuire previous mesh sections end vertice data to make seamless connection between mesh sections 
-		if (usePreviousEndVertices(isIntersectionAdded, isSinglePointUpdate)) {
-			UsePreviousEndVerticesData(isSinglePointUpdate);
+		if (ShouldUseMeshEndData(isIntersectionAdded, isMeshPartUpdate)) {
+			GetMeshEndData(isMeshPartUpdate);
 		} 
 		
 
-		else if (IsOnTheEndOfTunnel() && indexOfLastMesh == 0 && !isSinglePointUpdate && IsValid(connectedActor) && isEndConnected) {
-			if (connectedActor->isFirstTunnel) {
+		else if (IsOnTheEndOfTunnel() && indexOfLastMesh == 0 && !isMeshPartUpdate && IsValid(connectedActor) && isEndConnected) {
+			if (connectedActor->tunnelType == TunnelType::StartTunnel) {
 				TArray<FVector> ground = TransformVectors(connectedActor->tunnelStartMeshData.GroundVertives, connectedActor, this);
 				TArray<FVector> walls = TransformVectors(connectedActor->tunnelStartMeshData.WallVertices, connectedActor, this);
 				groundVertices.Append(ground);
@@ -402,7 +403,7 @@ void AProceduralTunnel::GenerateVerticesAndUVs(bool isSinglePointUpdate, bool is
 
 		else {
 			// This is default way of creting vertices around the tunnel
-			GenerateVerticesForCurrentLoop(isSinglePointUpdate, isIntersectionAdded, lastIndex);
+			GenerateVerticesForCurrentLoop(isMeshPartUpdate, lastIndex);
 		}
 	}
 }
@@ -442,11 +443,11 @@ TArray<FVector> AProceduralTunnel::TransformVectors(const TArray<FVector>& Vecto
 	return TransformedVectors;
 }
 
-
 // Returns boolean if we should use previous mesh section end data to make seamless connection between sections
-bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool isSinglePointUpdate) {
+bool AProceduralTunnel::ShouldUseMeshEndData (bool isIntersectionAdded, bool isMeshPartUpdate) {
 	int32 meshEndIndex = SplineComponent->GetNumberOfSplinePoints() - 3 - indexOfCurrentMesh;
 	// If there is intersection added and we are in the end of current mesh 
+	// return false because we want to recreate end before connecting with intersection
 	if(isIntersectionAdded && stepIndexInsideMesh == stepCountToMakeCurrentMesh) {
 		return false;
 	} 
@@ -457,7 +458,7 @@ bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool i
 			return true;
 		}
 		// If we are in the end of last mesh to create and single point adjustment is made
-		if(indexOfCurrentMesh == indexOfLastMesh && stepIndexInsideMesh == stepCountToMakeCurrentMesh && isSinglePointUpdate) {
+		if(indexOfCurrentMesh == indexOfLastMesh && stepIndexInsideMesh == stepCountToMakeCurrentMesh && isMeshPartUpdate) {
 			return true;	
 		}
 		return false;
@@ -465,13 +466,13 @@ bool AProceduralTunnel::usePreviousEndVertices (bool isIntersectionAdded, bool i
 }
 
 // Use the previous meshs sections end vertices data for the current tunnel section
-void AProceduralTunnel::UsePreviousEndVerticesData(bool isSinglePointUpdate) {
+void AProceduralTunnel::GetMeshEndData(bool isMeshPartUpdate) {
 	// Calculate the index that provides the correct mesh end data from the array (previous meshes end)
 	int32 meshEndIndex = SplineComponent->GetNumberOfSplinePoints() - 3 - indexOfCurrentMesh; 
 
 	// Check if we are at the end of the last mesh that we are generating and the height is adjusted
 	// In this case, we want to use this mesh's previously saved end data
-	if (indexOfCurrentMesh == indexOfLastMesh && stepIndexInsideMesh == stepCountToMakeCurrentMesh && isSinglePointUpdate) 
+	if (indexOfCurrentMesh == indexOfLastMesh && stepIndexInsideMesh == stepCountToMakeCurrentMesh && isMeshPartUpdate) 
 	{																													 
 		meshEndIndex = meshEnds.Num() - 1 - indexOfCurrentMesh;
 		currentMeshEndData = meshEnds[meshEndIndex];
@@ -488,7 +489,7 @@ void AProceduralTunnel::UsePreviousEndVerticesData(bool isSinglePointUpdate) {
 }
 
 // Generate vector locations around the tunnel
-void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate, bool isIntersectionAdded, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isMeshPartUpdate, int32 lastIndex) {
 	// Initialize start location and right vector 
 	InitializeStartVectorRightVectorAndValueInTexture();
 
@@ -504,12 +505,12 @@ void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isSinglePointUpdate,
 
 		// Get vertice for child tunnel of intersection from the parent intersection when we are in first loop of tunnel. 
 		// This is needed to create seamless cap between intersection and child tunnel
-		if (isFirstLoopAround && tunnelType != TunnelType::DefaultTunnel) {
+		if (isFirstLoopAround && tunnelType != TunnelType::StartTunnel) {
 			latestVertice = GetVerticeForStartOfChildTunnel();
 		}
 		else {
 			// Get the vertice for a default tunnel
-			latestVertice = GetVerticeForDefaultTunnel(isFirstLoopAround, isIntersectionAdded);
+			latestVertice = GetVerticeForDefaultTunnel(isFirstLoopAround);
 		}
 
 		// Adjust the latest vertice for overlap
@@ -562,20 +563,20 @@ bool AProceduralTunnel::IsOnTheEndOfCurrentMeshSection() {
 }
 
 // Returns the appropriate vertice for a default tunnel segment based on the surface index, whether it's the first loop around the tunnel, and if there's an intersection added.
-FVector AProceduralTunnel::GetVerticeForDefaultTunnel(bool isFirstLoopAround, bool isIntersectionAdded) {
+FVector AProceduralTunnel::GetVerticeForDefaultTunnel(bool isFirstLoopAround) {
 	FVector vertice;
 	switch (surfaceIndex) {
 	case 0:
 		vertice = GetVerticeOnGround();
 		break;
 	case 1:
-		vertice = GetVerticeOnRightWall(isFirstLoopAround, isIntersectionAdded);
+		vertice = GetVerticeOnRightWall(isFirstLoopAround);
 		break;
 	case 2:
 		vertice = GetVerticeOnRoof();
 		break;
 	case 3:
-		vertice = GetVerticeOnLeftWall(isFirstLoopAround, isIntersectionAdded);
+		vertice = GetVerticeOnLeftWall(isFirstLoopAround);
 		break;
 	}
 	return vertice;
@@ -678,11 +679,12 @@ FVector AProceduralTunnel::RightTunnelStart()
 		break;
 	case 1:
 		if (IsValid(parentsParentTunnel)) {
-			vertice = parentsParentTunnel->currentMeshEndData.WallVertices[verticeIndex];
+			// Get data of last mesh end
+			vertice = parentsParentTunnel->meshEnds[parentsParentTunnel->meshEnds.Num() - 1].WallVertices[verticeIndex];
 			return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		}
 		else {
-			return GetVerticeOnRightWall(true, false);
+			return GetVerticeOnRightWall(true);
 		}
 		break;
 	case 2:
@@ -698,7 +700,7 @@ FVector AProceduralTunnel::RightTunnelStart()
 		}
 		else 
 		{
-			return GetVerticeOnLeftWall(true, false);
+			return GetVerticeOnLeftWall(true);
 			break;
 		}	
 	default:
@@ -726,7 +728,7 @@ FVector AProceduralTunnel::LeftTunnelStart()
 		}
 		else 
 		{
-			return GetVerticeOnRightWall(true, false);;
+			return GetVerticeOnRightWall(true);;
 			break;
 		}
 	case 2:
@@ -735,11 +737,11 @@ FVector AProceduralTunnel::LeftTunnelStart()
 		break;
 	case 3:
 		if (IsValid(parentsParentTunnel)) {
-			vertice = parentsParentTunnel->currentMeshEndData.WallVertices[loopAroundTunnelCurrentIndex - numberOfHorizontalPoints];
+			vertice = parentsParentTunnel->meshEnds[parentsParentTunnel->meshEnds.Num() - 1].WallVertices[loopAroundTunnelCurrentIndex - numberOfHorizontalPoints];
 			return TransformVerticeToLocalSpace(parentsParentTunnel, vertice);
 		}
 		else {
-			return GetVerticeOnLeftWall(true, false);
+			return GetVerticeOnLeftWall(true);
 		}
 		break;
 	default:
@@ -821,7 +823,7 @@ FVector AProceduralTunnel::GetVerticeOnGround()
 }
 
 // Get vertice for right wall
-FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool isIntersectionAdded)
+FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 {
 	bool isEndOrStar = false;
 
@@ -843,7 +845,7 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	int32 defaultSplinePointCount = 2; // When tunnel is added it has 2 spline points as default
 	bool isFirstMesh = SplineComponent->GetNumberOfSplinePoints() - indexOfCurrentMesh - defaultSplinePointCount == 0; // This should be 2 - 0 - 2 = 0
 	
-	if (tunnelType != TunnelType::DefaultTunnel && 
+	if (tunnelType != TunnelType::StartTunnel &&
 		isUnderFiveSteps && 
 		!isStraightTunnelAfterLeftIntersection &&
 		!isLeftTunnelAfterRightLeftIntersection &&
@@ -875,40 +877,40 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound, bool is
 	}
 	
 	// Check if we need to rotate the end right wall vertices to align with the continuation tunnel of the intersection.
-	if (indexOfLastMesh == indexOfCurrentMesh && 
-		stepIndexInsideMesh <= stepCountToMakeCurrentMesh && 
-		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && 
-		isIntersectionAdded && 
-		(intersectionType == IntersectionType::Right || 
-			intersectionType == IntersectionType::All || 
-			intersectionType == IntersectionType::RightLeft))
-	{
-		isEndOrStar = true;
-		float rotateAmount = 0.0f;
-		int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
-		float alpha = index / 4.0f;
-		rotateAmount = FMath::Lerp(0.0f, 45.0f, alpha);
+	if (IsValid(intersection)) {
+		if (indexOfLastMesh == indexOfCurrentMesh &&
+			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
+			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
+			intersection->intersectionType != IntersectionType::Left)
+		{
+			isEndOrStar = true;
+			float rotateAmount = 0.0f;
+			int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
+			float alpha = index / 4.0f;
+			rotateAmount = FMath::Lerp(0.0f, 45.0f, alpha);
 
-		switch (index) {
-		case 0:
-			extraMovementToEnd = 0.0f;
-			break;
-		case 1:
-			extraMovementToEnd = 10.0f;
-			break;
-		case 2:
-			extraMovementToEnd = 30.0f;
-			break;
-		case 3:
-			extraMovementToEnd = 50.0f;
-			break;
-		case 4:
-			extraMovementToEnd = 100.0f;
-			break;
+			switch (index) {
+			case 0:
+				extraMovementToEnd = 0.0f;
+				break;
+			case 1:
+				extraMovementToEnd = 10.0f;
+				break;
+			case 2:
+				extraMovementToEnd = 30.0f;
+				break;
+			case 3:
+				extraMovementToEnd = 50.0f;
+				break;
+			case 4:
+				extraMovementToEnd = 100.0f;
+				break;
+			}
+			FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
+			rVector = rotator.RotateVector(rightVector);
 		}
-		FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
-		rVector = rotator.RotateVector(rightVector);
 	}
+	
 
 	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
 	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) / (float)(numberOfVerticalPoints);
@@ -969,7 +971,7 @@ FVector AProceduralTunnel::GetVerticeOnRoof()
 }
 
 // Get vertice for left wall
-FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isIntersectionAdded)
+FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 {
 	bool isEndOrStar = false;
 	float extraMovementToEnd = 0.0f;
@@ -1000,7 +1002,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
 
 	// Rotate start of wall vertices to align with parent of intersection.
-	if (tunnelType != TunnelType::DefaultTunnel && stepIndexInsideMesh <= 4 && 
+	if (tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= 4 &&
 		!isStraightTunnelAfterRightIntersection &&
 		!isRightTunnelAfterRightLeftIntersection &&
 		((SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0))
@@ -1040,42 +1042,41 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	}
 
 	// Rotate the end right wall vertices to round up with continuation tunnel of intersection, if applicable.
-	if (indexOfLastMesh == indexOfCurrentMesh && 
-		stepIndexInsideMesh <= stepCountToMakeCurrentMesh && 
-		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 && 
-		isIntersectionAdded &&
-		(intersectionType == IntersectionType::Left || 
-			intersectionType == IntersectionType::All ||
-			intersectionType == IntersectionType::RightLeft))
-	{
-		isEndOrStar = true;
+	if (IsValid(intersection)) {
+		if (indexOfLastMesh == indexOfCurrentMesh &&
+			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
+			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
+			intersection->intersectionType != IntersectionType::Right)
+		{
+			isEndOrStar = true;
 
-		float rotateAmount = 0.0f;
-		int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
-		float alpha = index / 4.0f;
-		rotateAmount = FMath::Lerp(0.0f, -45.0f, alpha);
+			float rotateAmount = 0.0f;
+			int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
+			float alpha = index / 4.0f;
+			rotateAmount = FMath::Lerp(0.0f, -45.0f, alpha);
 
-		switch (index) {
-		case 0:
-			extraMovementToEnd = 0.0f;
-			break;
-		case 1:
-			extraMovementToEnd = 10.0f;
-			break;
-		case 2:
-			extraMovementToEnd = 30.0f;
-			break;
-		case 3:
-			extraMovementToEnd = 50.0f;
-			break;
-		case 4:
-			extraMovementToEnd = 100.0f;
-			break;
+			switch (index) {
+			case 0:
+				extraMovementToEnd = 0.0f;
+				break;
+			case 1:
+				extraMovementToEnd = 10.0f;
+				break;
+			case 2:
+				extraMovementToEnd = 30.0f;
+				break;
+			case 3:
+				extraMovementToEnd = 50.0f;
+				break;
+			case 4:
+				extraMovementToEnd = 100.0f;
+				break;
+			}
+
+			// Rotate the rVector and update it.
+			FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
+			rVector = rotator.RotateVector(rightVector);
 		}
-
-		// Rotate the rVector and update it.
-		FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
-		rVector = rotator.RotateVector(rightVector);
 	}
 
 	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
@@ -1083,7 +1084,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound, bool isI
 	// Add roundness to the tunnel wall
 
 	float roundnessAmount = deformCurve->GetFloatValue(locationOnWall);
-	if (isIntersectionAdded && stepIndexInsideMesh == stepCountToMakeCurrentMesh)
+	if (IsValid(intersection) && stepIndexInsideMesh == stepCountToMakeCurrentMesh)
 	{
 		roundnessAmount = FMath::Clamp((float)(roundnessAmount - 0.1f), 0.0f, 1.0f);
 	}
