@@ -210,7 +210,9 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		}
 		FVector direction = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
 		FVector secondPointLocation = SplineComponent->GetLocationAtSplinePoint(lastIndex - 1, ESplineCoordinateSpace::World);
-		SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, FMath::Lerp(closestPoint - direction * 600, secondPointLocation, 0.2f), ESplineCoordinateSpace::World, true);	
+		if (SplineComponent->GetNumberOfSplinePoints() > 2) {
+			SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, FMath::Lerp(closestPoint - direction * 600, secondPointLocation, 0.2f), ESplineCoordinateSpace::World, true);
+		}
 	}
 	// If no closest point was found, set the end connection status to false
 	else
