@@ -55,6 +55,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FVector> HitLocations;
+	std::vector<FVector> RecordedHits;
 	UPROPERTY()
 	UTopic* RadarDataTopic;
 

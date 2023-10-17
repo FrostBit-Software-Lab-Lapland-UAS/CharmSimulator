@@ -163,6 +163,9 @@ void ARadar::SendLineTraces(float DeltaTime)
     }
 
     HitLocations.Empty();
+    RecordedHits.clear();
+    RecordedHits.resize(NumPoints);
+    
     RayArray.clear();
     RayArray.resize(NumPoints);
 
@@ -201,11 +204,17 @@ void ARadar::SendLineTraces(float DeltaTime)
                     OutHit.Distance * TO_METERS, CalculateRelativeVelocity(OutHit, RadarLocation),
                     AzimuthAndElevation.X, AzimuthAndElevation.Y };
                 RayArray[idx] = ray;
+                RecordedHits[idx] = OutHit.ImpactPoint;
             }
         });
 
     if (RayArray.size() < 1) {
         return;
+    }
+
+    for (auto& hit : RecordedHits) {
+        // Add hit location to HitLocations array
+        HitLocations.Add(hit);
     }
 
     const FRayData* RaysDataPtr = RayArray.data();
