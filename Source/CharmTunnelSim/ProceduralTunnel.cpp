@@ -379,8 +379,8 @@ void AProceduralTunnel::GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isInt
 				currentMeshEndData.WallVertices = walls;
 			}
 			else {
-				TArray<FVector> ground = TransformVectors(connectedActor->currentMeshEndData.GroundVertives, connectedActor, this);
-				TArray<FVector> walls = TransformVectors(connectedActor->currentMeshEndData.WallVertices, connectedActor, this);
+				TArray<FVector> ground = TransformVectors(connectedActor->meshEnds[connectedActor->meshEnds.Num()-1].GroundVertives, connectedActor, this);
+				TArray<FVector> walls = TransformVectors(connectedActor->meshEnds[connectedActor->meshEnds.Num() - 1].WallVertices, connectedActor, this);
 				Algo::Reverse(ground);
 				Algo::Reverse(walls);
 				groundVertices.Append(ground);
