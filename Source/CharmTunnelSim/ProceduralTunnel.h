@@ -29,10 +29,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline", meta=(AllowPrivateAccess = "true"))
 	USplineComponent* SplineComponent;
 
-	// Static mesh spline point indicator
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline", meta=(AllowPrivateAccess = "true"))
-	UStaticMeshComponent* SplinePointIndicator;
-
 	// Scene root component
 	USceneComponent* RootComponent;
 

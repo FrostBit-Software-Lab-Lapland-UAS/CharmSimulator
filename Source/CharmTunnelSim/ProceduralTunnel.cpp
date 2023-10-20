@@ -37,8 +37,6 @@ AProceduralTunnel::AProceduralTunnel()
 	SetRootComponent(RootComponent);
 	SplineComponent = CreateDefaultSubobject<USplineComponent>("Spline Component");
 	SplineComponent->SetupAttachment(RootComponent);
-	SplinePointIndicator = CreateDefaultSubobject<UStaticMeshComponent>("Mesh Component");
-	SplinePointIndicator->SetupAttachment(SplineComponent);
 
 	int32 PointIndex = 1; // The index of the second spline point
 
@@ -59,13 +57,6 @@ AProceduralTunnel::AProceduralTunnel()
 	// Set the tangent for the first spline point 
 	FVector FirstPoint(1000.f, 0.f, 0.f); //300
 	SplineComponent->SetTangentAtSplinePoint(0, SecondPointTangent, ESplineCoordinateSpace::Local);
-
-	// Update the SplinePointIndicator's transform to match the second spline point
-	if (SplinePointIndicator)
-	{
-		FTransform NewTransform = SplineComponent->GetTransformAtSplinePoint(PointIndex, ESplineCoordinateSpace::Local);
-		SplinePointIndicator->SetWorldTransform(NewTransform);
-	}
 
 	// Force the spline to update its visualization in the editor (if needed)
 	SplineComponent->UpdateSpline();
@@ -199,8 +190,6 @@ void AProceduralTunnel::SnapToEndOfOtherSpline()
 		isEndConnected = true;
 		connectedActor->isEndConnected = true; // Set the closest proceduralTunnel's isEndConnected to true
 		SplineComponent->SetLocationAtSplinePoint(lastIndex, closestPoint, ESplineCoordinateSpace::World, true);
-		//SplinePointIndicator->SetWorldLocation(closestPoint);
-		//SplineComponent->AddSplinePoint(closestPoint, ESplineCoordinateSpace::World, true);
 		if (connecToStart) {
 			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent, ESplineCoordinateSpace::World, true);
 		}
