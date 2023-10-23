@@ -137,13 +137,15 @@ void ACamera::ProcessAndPublishImage()
 	// Iterate through the captured image data and extract RGB values
 	for (int i = 0; i < ReadBufferData.Num(); i++)
 	{
+		if (i > ReadBufferData.Num()) {
+			return;
+		}
 		uArray[i + i * 2] = ReadBufferData[i].R;
 		uArray[i + 1 + i * 2] = ReadBufferData[i].G;
 		uArray[i + 2 + i * 2] = ReadBufferData[i].B;
 	}
 	// Set the output_image data to the processed RGB array
 	output_image->data = uArray;
-
 	// Check if ROS is connected and the CameraDataTopic is valid
 	if (rosInstance->bIsConnected && IsValid(CameraDataTopic) && (ReadBufferData.Num() * 3) > 0) {
 		// Publish the output_image to the ROS topic
