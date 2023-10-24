@@ -7,7 +7,6 @@ The primary goal of CharmSimulator is to demonstrate the versatility of modern g
 
 ### Releases
 To experience the capabilities of CharmSimulator firsthand, you can access the built game of the project using the following link:
-CharmSimulator Build
 
 [CharmSimulator Build](https://lucit.sharepoint.com/:f:/s/FrostBitFileshare/EmCw8kp77DJIhhE-TeLt8S0BInhEiP-3BUompnSDdtOp8Q?e=qGxh2Z)
 
