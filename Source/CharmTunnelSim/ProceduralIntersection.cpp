@@ -356,12 +356,14 @@ FVector AProceduralIntersection::GetFloorVertice()
 		break;
 	}
 
-	// Calculate the position of the vertice.
-	float deformAmount = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
-	float amountOfDeform = FMath::Lerp(0.0f, deformAmount, surfaceVariation.X);
-	float deform = FMath::RandRange(amountOfDeform * -20, amountOfDeform * 20);
+	// Apply deformation to the starting location
+	float pixelValue = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
+	// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+	float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+	float deform = FMath::Lerp(0.0f, maxFloorDeformation, surfaceVariation.X) * directionOfDeform;
 
-	return firstVertice + FVector(0.0f, sideWaysMovementAmount, -deform);
+
+	return firstVertice + FVector(0.0f, sideWaysMovementAmount, deform);
 }
 
 // Get the right vertice for the left side intersection
@@ -380,8 +382,13 @@ FVector AProceduralIntersection::GetRightVertice()
 	float tunnelRounding = FMath::Lerp(tunnelRoundValue, 0.0f, roundnessAmount);
 
 	// Calculate the amount of deform based on the texture value at this point.
-	float maxValue = FMath::Lerp(0.0f, maxDeform, surfaceVariation.Y);
-	float deform = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex) * maxValue;
+	float maxValue = FMath::Lerp(0.0f, maxWallDeformation, surfaceVariation.Y);
+
+	// Apply deformation to the starting location
+	float pixelValue = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
+	// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+	float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+	float deform = directionOfDeform * maxValue;
 
 	// Calculate the position of the vertice.
 	FVector vertice = firstVertice + FVector(0.0f, 0.0f, verticalPointSize * (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints));
@@ -448,10 +455,15 @@ FVector AProceduralIntersection::GetRoofVertice()
 
 		// Add roundness to the vertice position. Divide rounding by 2 to add more natural roundness to roof
 		selectedVector.Z += tunnelRounding / 2; // ADD ROUNDNESS
-		
-		// Calculate the amount of deform and add it to the vertice position.
-		float maxValue = FMath::Lerp(0.0f, maxDeform, surfaceVariation.Y); 
-		float deform = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex) * maxValue; 
+
+		// Calculate the amount of deform based on the texture value at this point.
+		float maxValue = FMath::Lerp(0.0f, maxWallDeformation, surfaceVariation.Y);
+		// Apply deformation to the starting location
+		float pixelValue = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
+		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+		float deform = directionOfDeform * maxValue;
+
 		return selectedVector + FVector(0.0f,0.0f, deform); 
 
 	} 
@@ -470,9 +482,13 @@ FVector AProceduralIntersection::GetRoofVertice()
 		// Add roundness to the vertex position.
 		selectedVector.Z += tunnelRounding / 2; // ADD ROUNDNESS
 		
-		// Calculate the amount of deform and add it to the vertex position.
-		float maxValue = FMath::Lerp(0.0f, maxDeform, surfaceVariation.Y);
-		float deform = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex) * maxValue;
+		// Calculate the amount of deform based on the texture value at this point.
+		float maxValue = FMath::Lerp(0.0f, maxWallDeformation, surfaceVariation.Y);
+		// Apply deformation to the starting location
+		float pixelValue = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
+		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+		float deform = directionOfDeform * maxValue;
 		return selectedVector + FVector(0.0f,0.0f, deform);
 
 	} 
@@ -508,9 +524,14 @@ FVector AProceduralIntersection::GetLeftVertice()
 	float roundnessAmount = roundnessCurve->GetFloatValue(locationOnWall);
 	float tunnelRounding = FMath::Lerp(tunnelRoundValue, 0.0f, roundnessAmount);
 
-	// Calculate the amount of deform.
-	float maxValue = FMath::Lerp(0.0f, maxDeform, surfaceVariation.Y);
-	float deform = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex) * maxValue;
+	// Calculate the amount of deform based on the texture value at this point.
+	float maxValue = FMath::Lerp(0.0f, maxWallDeformation, surfaceVariation.Y);
+
+	// Apply deformation to the starting location
+	float pixelValue = GetPixelValue(forwarLoopIndex, loopAroundTunnelCurrentIndex);
+	// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+	float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+	float deform = directionOfDeform * maxValue;
 
 	// Calculate the position of the vertice.
 	FVector vertice = firstVertice - FVector(0.0f, 0.0f, verticalPointSize * (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints + 1));

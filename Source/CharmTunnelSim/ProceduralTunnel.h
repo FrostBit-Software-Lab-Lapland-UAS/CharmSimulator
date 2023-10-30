@@ -95,7 +95,8 @@ public:
 	TArray<FVector> groundNormals;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tunnel foundation")
 	TArray<FProcMeshTangent> groundTangents;
-	float maxDeform = 100.0f;
+	float maxWallDeformation = 100.0f;
+	float maxFloorDeformation = 50.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapping")
 	bool isEndConnected;

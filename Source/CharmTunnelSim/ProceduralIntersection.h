@@ -124,10 +124,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void AddContinuationTunnels();
 	
+	float maxWallDeformation = 100.0f;
+	float maxFloorDeformation = 50.0f;
 
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	float maxDeform = 100.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
 	float roundingAmount = 15.0f;
 };

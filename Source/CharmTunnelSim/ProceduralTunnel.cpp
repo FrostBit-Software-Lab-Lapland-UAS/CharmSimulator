@@ -801,15 +801,16 @@ FVector AProceduralTunnel::GetVerticeOnGround()
 		return latestVertice;
 	}
 
-	// Calculate the deformation amount
-	float deformAmount = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-	float amountOfDeform = FMath::Lerp(0.0f, deformAmount, floorDeformation);
-	float deform = FMath::RandRange(amountOfDeform * -20, amountOfDeform * 20);
+	// Apply deformation to the starting location
+	float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
+	// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+	float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+	float deform = FMath::Lerp(0.0f, maxFloorDeformation, floorDeformation) * directionOfDeform;
 
 	// Add sideways movement to start location
 	float stepSize = horizontalPointSize * (float)loopAroundTunnelCurrentIndex;
 	FVector stepToSide = wallStartVertice + rightVector * stepSize;
-	return FVector(stepToSide.X, stepToSide.Y, stepToSide.Z - deform);
+	return FVector(stepToSide.X, stepToSide.Y, stepToSide.Z + deform);
 }
 
 // Get vertice for right wall
@@ -924,8 +925,11 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 
 	// Dont add deformation to end or start of tunnel
 	if (!isEndOrStar) {
-		float deformAmount = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-		wallVertice += FMath::Lerp(0.0f, maxDeform, wallDeformation) * deformAmount * rightVector;
+		// Apply deformation to the starting location
+		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
+		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
 	}
 
 	return wallVertice;
@@ -938,7 +942,7 @@ FVector AProceduralTunnel::GetVerticeOnRoof()
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints + numberOfVerticalPoints)
 	{
 		wallStartVertice.Z += verticalPointSize * numberOfVerticalPoints;
-		return wallStartVertice;
+		//return wallStartVertice;
 	}
 
 	FVector wallVertice = wallStartVertice;
@@ -954,8 +958,10 @@ FVector AProceduralTunnel::GetVerticeOnRoof()
 	wallVertice.Z += tunnelRounding / 2.0f;
 
     // Apply deformation to the starting location
-    float deformAmount = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-	wallVertice.Z += FMath::Lerp(0.0f, maxDeform, wallDeformation) * deformAmount;
+    float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
+	// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+	float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+	wallVertice.Z += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform;
 
     return wallVertice;
 }
@@ -1086,11 +1092,11 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 	wallVertice += tunnelRoundnesss;
 
 	if (!isEndOrStar) {
-		// Calculate deformation of the wall
-		float deformAmount = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-		//float deformArea = stopDeformCurve->GetFloatValue(locationOnWall);
-		//float deformFromLerp = FMath::Lerp(0.0f, deformAmount, deformArea);				/// lerp out bottom of wall
-		wallVertice -= FMath::Lerp(0.0f, maxDeform, wallDeformation) * deformAmount * rightVector;
+		// Apply deformation to the starting location
+		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
+		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
+		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
+		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
 	}
 
 	return wallVertice;
