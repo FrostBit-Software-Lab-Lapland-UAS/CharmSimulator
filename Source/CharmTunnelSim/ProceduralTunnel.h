@@ -149,10 +149,6 @@ public:
 
 	
 	float tunnelRoundValue = 100.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 reCreateMeshCount;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
-	int32 meshInRework = -1;
 	
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural loop params")
@@ -166,9 +162,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ControlSplinePoints();
 	UFUNCTION(BlueprintCallable)
-	int32 SetUpProceduralGeneratorLoopParams();
+	int32 GetMeshIndexToStartRecreation();
 	UFUNCTION(BlueprintCallable)
-	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate, bool isIntersectionAdded);
+	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate);
 	UFUNCTION(BlueprintCallable)
 	void SetValuesForGeneratingTunnel(float select, bool undo, FVector2D tunnelScale, FVector2D sVariation, bool reset);
 
@@ -177,15 +173,15 @@ public:
 	void InitializeProceduralGenerationLoopVariables(int32 firstIndex, int32 lastIndex);
 	void CalculateStepsInTunnelSection();
 	void ResetCurrentMeshEndData();
-	void GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isIntersectionAdded, int32 lastIndex);
+	void GenerateVerticesAndUVs(bool isMeshPartUpdate, int32 lastIndex);
 	void GetMeshEndData(bool isMeshPartUpdate);
-	void GenerateVerticesForCurrentLoop(bool isMeshPartUpdate, int32 lastIndex);
+	void GenerateVerticesForCurrentLoop(int32 lastIndex);
 
 	int32 GetSurfaceIndex();
 	int32 GetIndexOfVertice();
 
 	bool GetIsFirstLoopAround();
-	bool ShouldUseMeshEndData (bool isIntersectionAdded, bool isMeshPartUpdate);
+	bool ShouldUseMeshEndData (bool isMeshPartUpdate);
 
 	// Transforms mesh end data vectors from other actors local space to other actor local space
 	TArray<FVector> TransformVectors(const TArray<FVector>& Vectors, AActor* SourceActor, AActor* TargetActor);
@@ -225,5 +221,5 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void MakeMeshTangentsAndNormals();
 	UFUNCTION(BlueprintImplementableEvent)
-	void MakeMesh(int32 meshPartIndex, bool bMeshPartOfTunnelIsUpdated);
+	void MakeMesh(int32 meshPartIndex);
 };

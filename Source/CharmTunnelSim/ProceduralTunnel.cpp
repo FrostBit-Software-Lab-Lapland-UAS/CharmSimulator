@@ -79,12 +79,14 @@ void AProceduralTunnel::Tick(float DeltaTime)
 // Destroy the last mesh
 void AProceduralTunnel::DestroyLastMesh() 
 {
-	int32 lastIndex = TunnelMeshes.Num() - 1;
-	if (lastIndex >= 0) {
-		TunnelMeshes[lastIndex]->DestroyComponent();
-		TunnelMeshes.RemoveAt(lastIndex);
-		lastIndex = meshEnds.Num() - 1;
-		meshEnds.RemoveAt(lastIndex);
+	if (SplineComponent->GetNumberOfSplinePoints() > 2) {
+		SplineComponent->RemoveSplinePoint(SplineComponent->GetNumberOfSplinePoints() - 1, true);
+		TunnelMeshes.Last()->DestroyComponent();
+		TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
+		meshEnds.RemoveAt(meshEnds.Num() - 1);
+	}
+	else {
+		SplineComponent->SetLocationAtSplinePoint(1, FVector(200, 0, 0), ESplineCoordinateSpace::Local, true);
 	}
 }
 
@@ -214,17 +216,14 @@ void AProceduralTunnel::ControlSplinePoints()
 {
 	if(!isReset) 
 	{
-		// When end is connected or we are undoing tunnel we dont want to enter here
-		if (/*!isEndConnected &&*/ !isUndo)
+		if (!isUndo)
 		{ 
 			AddOrRemoveSplinePoints();
 		}
-		// If we are undoing tunnel and tunnel is long enough we will destroy last mesh part of this tunnel
-		else if (/*!isEndConnected && */ isUndo && SplineComponent->GetNumberOfSplinePoints() >= 2)
+		// If we are undoing destroy last mesh part of this tunnel
+		else 
 		{
-			TunnelMeshes.Last()->DestroyComponent();
-			TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
-			meshEnds.RemoveAt(meshEnds.Num()-1);
+			DestroyLastMesh();
 		}
 	} 
 	// When resetting remove all the mesh components so the whole tunnel is rebuild
@@ -283,21 +282,42 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 }
 
 // Returns negative value of how many meshes we need to remakes
-int32 AProceduralTunnel::SetUpProceduralGeneratorLoopParams()
+int32 AProceduralTunnel::GetMeshIndexToStartRecreation()
 {
 	float tunnelWidth = widthScale * 100.0f;
 	float tunnelHeight = heightScale * 100.0f;
 	horizontalPointSize = tunnelWidth / (float)(numberOfHorizontalPoints - 1);
 	verticalPointSize = tunnelHeight / (float)(numberOfVerticalPoints);
 
-	reCreateMeshCount = 2;
-	meshInRework = -1;
-	int32 countOfMeshesToRemake = FMath::Clamp((SplineComponent->GetNumberOfSplinePoints() -2), 0, 2) + (fmax(0, ((SplineComponent->GetNumberOfSplinePoints() - 2) - TunnelMeshes.Num())));
-	return countOfMeshesToRemake * -1;
+	// Last mesh index is alway spline point count - 2
+	int32 lastMeshIndex = SplineComponent->GetNumberOfSplinePoints() - 2;
+	// This gives as base mesh index from which to start recreating tunnel meshes
+	// 0 means that we only want to recreate last mesh of tunnel
+	// But we also want to clamp base value to be in range of 0 - 2
+	// Draging the end of tunnel does not affect meshes after third mesh (index 2)
+	int32 baseMeshIndex = FMath::Clamp(lastMeshIndex, 0, 2);
+	// This gives us extra offset if user has clicked tunnel end further 
+	// by clicking user can move tunnel end far away from original location
+	// by doing this there is much more caps between spline points where is no mesh created
+	// below example of this kind of situation where x = spline point # = mesh and ? = missing mesh
+	// 
+	//  Start	  6   5   4   3   2   1   0 End
+	//  x # x # x # x # x ? x ? x ? x ? x ? x
+	//							  ^ baseMeshIndex = 2
+	//            ^ baseMeshIndex(2) + tunnelMeshOffset(4) = 6 
+	//
+	int32 tunnelMeshOffset = fmax(0, (lastMeshIndex - TunnelMeshes.Num()));
+	
+	int32 indexOfMeshFromStartRecreation = baseMeshIndex + tunnelMeshOffset;
+	// This needs to be returned as negative because recreation loop is done counterwise 
+	// Check the visualization above 
+	indexOfMeshFromStartRecreation *= -1;
+
+	return indexOfMeshFromStartRecreation;
 }
 
 // Regenerate section of tunnel. One section is space between 2 back to back spline points
-void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate, bool isIntersectionAdded) {
+void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate) {
 	// Initialize variables for procedural generation loop
 	InitializeProceduralGenerationLoopVariables(firstIndex, lastIndex);
 
@@ -315,14 +335,14 @@ void AProceduralTunnel::ProceduralGenerationLoop(int32 firstIndex, int32 lastInd
 			ResetCurrentMeshEndData();
 
 			// Generate vertices and UVs for the tunnel mesh
-			GenerateVerticesAndUVs(isMeshPartUpdate, isIntersectionAdded, lastIndex);
+			GenerateVerticesAndUVs(isMeshPartUpdate, lastIndex);
 
 			// Create the mesh triangles, tangents, and normals
 			MakeMeshTriangles();
 			MakeMeshTangentsAndNormals();
 
 			// Build the mesh with the generated data
-			MakeMesh(indexOfCurrentMesh, isMeshPartUpdate);
+			MakeMesh(indexOfCurrentMesh);
 		}
 	}
 }
@@ -357,18 +377,16 @@ void AProceduralTunnel::ResetCurrentMeshEndData() {
 }
 
 // Generate vertices and UVs for the tunnel mesh
-void AProceduralTunnel::GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isIntersectionAdded, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesAndUVs(bool isMeshPartUpdate, int32 lastIndex) {
 	for (stepIndexInsideMesh = 0; stepIndexInsideMesh <= stepCountToMakeCurrentMesh; stepIndexInsideMesh++) {
 		// Clear arrays holding vertice data of start of tunnel
 		if (IsFirstLoopOfWholeTunnel()) {
 			tunnelStartMeshData.Reset();
 		}
 		// If true we will accuire previous mesh sections end vertice data to make seamless connection between mesh sections 
-		if (ShouldUseMeshEndData(isIntersectionAdded, isMeshPartUpdate)) {
+		if (ShouldUseMeshEndData(isMeshPartUpdate)) {
 			GetMeshEndData(isMeshPartUpdate);
 		} 
-		
-
 		else if (IsOnTheEndOfTunnel() && indexOfLastMesh == 0 && !isMeshPartUpdate && IsValid(connectedActor) && isEndConnected) {
 			if (connectedActor->tunnelType == TunnelType::StartTunnel) {
 				TArray<FVector> ground = TransformVectors(connectedActor->tunnelStartMeshData.GroundVertives, connectedActor, this);
@@ -389,11 +407,9 @@ void AProceduralTunnel::GenerateVerticesAndUVs(bool isMeshPartUpdate, bool isInt
 				currentMeshEndData.WallVertices = walls;
 			}
 		}
-
-
 		else {
 			// This is default way of creting vertices around the tunnel
-			GenerateVerticesForCurrentLoop(isMeshPartUpdate, lastIndex);
+			GenerateVerticesForCurrentLoop(lastIndex);
 		}
 	}
 }
@@ -434,11 +450,11 @@ TArray<FVector> AProceduralTunnel::TransformVectors(const TArray<FVector>& Vecto
 }
 
 // Returns boolean if we should use previous mesh section end data to make seamless connection between sections
-bool AProceduralTunnel::ShouldUseMeshEndData (bool isIntersectionAdded, bool isMeshPartUpdate) {
+bool AProceduralTunnel::ShouldUseMeshEndData (bool isMeshPartUpdate) {
 	int32 meshEndIndex = SplineComponent->GetNumberOfSplinePoints() - 3 - indexOfCurrentMesh;
 	// If there is intersection added and we are in the end of current mesh 
 	// return false because we want to recreate end before connecting with intersection
-	if(isIntersectionAdded && stepIndexInsideMesh == stepCountToMakeCurrentMesh) {
+	if(IsValid(intersection) && stepIndexInsideMesh == stepCountToMakeCurrentMesh && indexOfCurrentMesh == 0) {
 		return false;
 	} 
 	else 
@@ -447,7 +463,7 @@ bool AProceduralTunnel::ShouldUseMeshEndData (bool isIntersectionAdded, bool isM
 		if((stepIndexInsideMesh == 0) && (meshEnds.Num() > 0) && (meshEndIndex >= 0) && (meshEnds.Num() - 1 >= meshEndIndex)) {
 			return true;
 		}
-		// If we are in the end of last mesh to create and single point adjustment is made
+		// If we are in the end of last mesh to create and mesh part is udpated
 		if(indexOfCurrentMesh == indexOfLastMesh && stepIndexInsideMesh == stepCountToMakeCurrentMesh && isMeshPartUpdate) {
 			return true;	
 		}
@@ -479,7 +495,7 @@ void AProceduralTunnel::GetMeshEndData(bool isMeshPartUpdate) {
 }
 
 // Generate vector locations around the tunnel
-void AProceduralTunnel::GenerateVerticesForCurrentLoop(bool isMeshPartUpdate, int32 lastIndex) {
+void AProceduralTunnel::GenerateVerticesForCurrentLoop(int32 lastIndex) {
 	// Initialize start location and right vector 
 	InitializeStartVectorRightVectorAndValueInTexture();
 
@@ -869,7 +885,7 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 	
 	// Check if we need to rotate the end right wall vertices to align with the continuation tunnel of the intersection.
 	if (IsValid(intersection)) {
-		if (indexOfLastMesh == indexOfCurrentMesh &&
+		if (indexOfCurrentMesh == 0 &&
 			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
 			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
 			intersection->intersectionType != IntersectionType::Left)
@@ -1039,7 +1055,7 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 
 	// Rotate the end right wall vertices to round up with continuation tunnel of intersection, if applicable.
 	if (IsValid(intersection)) {
-		if (indexOfLastMesh == indexOfCurrentMesh &&
+		if (indexOfCurrentMesh == 0 &&
 			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
 			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
 			intersection->intersectionType != IntersectionType::Right)
