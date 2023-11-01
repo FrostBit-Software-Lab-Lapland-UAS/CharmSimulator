@@ -79,6 +79,10 @@ void AProceduralTunnel::Tick(float DeltaTime)
 // Destroy the last mesh
 void AProceduralTunnel::DestroyLastMesh() 
 {
+	if (IsValid(connectedActor)) {
+		connectedActor->isEndConnected = false;
+		connectedActor = nullptr;
+	}
 	if (SplineComponent->GetNumberOfSplinePoints() > 2) {
 		SplineComponent->RemoveSplinePoint(SplineComponent->GetNumberOfSplinePoints() - 1, true);
 		TunnelMeshes.Last()->DestroyComponent();
@@ -90,123 +94,85 @@ void AProceduralTunnel::DestroyLastMesh()
 	}
 }
 
-// Function that connects the end of the current tunnel to the end of another tunnel spline
+// Constants for snapping behavior. 
+const float DEFAULT_SNAPPING_DISTANCE = 600.0f;
+const float LERP_FACTOR = 0.2f;
+
 void AProceduralTunnel::SnapToEndOfOtherSpline()
 {
-	// Initialize variables to store the closest point, lowest distance, and closest tangent
-	FVector closestPoint = FVector(0, 0, 0);
+	// Variables to store the closest tunnel details
+	FVector closestPoint = FVector::ZeroVector;
 	FVector closestTangent;
+	AProceduralTunnel* closestTunnel = nullptr;
+	bool connectToStart = false;
 
-	// Get the last spline point of the current tunnel
+	// Get the end spline point of the current tunnel
 	int32 lastIndex = SplineComponent->GetNumberOfSplinePoints() - 1;
 	FVector lastPointLocation = SplineComponent->GetLocationAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
 
-	// Get all actors of class AProceduralTunnel in the world
+	// Retrieve all tunnel actors in the world
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProceduralTunnel::StaticClass(), FoundActors);
 
-	bool connecToStart = false;
+	// Initialize to the maximum allowed distance to find the closest tunnel within range.
+	float shortestDistance = maxDistanceToSnapSplineEnds;
 
-	// Loop through all the found tunnel actors
-	for (AActor* tunnel : FoundActors)
+	// Loop through all tunnels to find the closest valid one to connect to
+	for (AActor* tunnelActor : FoundActors)
 	{
-		// Cast the tunnel actor to a ProceduralTunnel object and get its spline component
-		AProceduralTunnel* proceduralTunnel = Cast<AProceduralTunnel>(tunnel);
-		USplineComponent* spline = proceduralTunnel->SplineComponent;
+		// Safely cast the actor to AProceduralTunnel
+		AProceduralTunnel* tunnel = Cast<AProceduralTunnel>(tunnelActor);
 
-		// Ensure the spline being compared is not the current tunnel's spline
-		if (spline != SplineComponent)
+		// Skip if casting failed or if we're checking the current tunnel itself
+		if (!tunnel || tunnel->SplineComponent == SplineComponent) continue;
+
+		// Determine which point of the tunnel to consider for snapping
+		USplineComponent* spline = tunnel->SplineComponent;
+		int32 splineIndexToSnap = (tunnel->tunnelType == TunnelType::StartTunnel) ? 0 : spline->GetNumberOfSplinePoints() - 1;
+
+		// Compute the distance and direction to the potential connecting point
+		FVector comparedPointLocation = spline->GetLocationAtSplinePoint(splineIndexToSnap, ESplineCoordinateSpace::World);
+		float distance = FVector::Distance(comparedPointLocation, lastPointLocation);
+		FVector currentEndDirection = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
+		FVector directionToOtherEnd = (comparedPointLocation - lastPointLocation).GetSafeNormal();
+		float dotProduct = FVector::DotProduct(currentEndDirection, directionToOtherEnd);
+
+		// Update the closest tunnel details if this tunnel is a better match
+		if (distance < shortestDistance && dotProduct >= 0)
 		{
-			// Get the last spline point of the other tunnel
-			int32 SplinePointIndexToSnap;
-			if (proceduralTunnel->tunnelType == TunnelType::StartTunnel)
-			{
-				SplinePointIndexToSnap = 0;
-			}
-			else {
-				SplinePointIndexToSnap = spline->GetNumberOfSplinePoints() - 1;
-			}
-
-			FVector comparedPointsLocation = spline->GetLocationAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
-
-			// Calculate the distance between the current tunnel end and the other tunnel end
-			float distance = FVector::Distance(comparedPointsLocation, lastPointLocation);
-
-			// Get the forward direction of the current tunnel's end
-			FVector currentEndForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
-
-			// Calculate the direction from the current tunnel end to the other tunnel end
-			FVector directionToOtherEnd = (comparedPointsLocation - lastPointLocation).GetSafeNormal();
-
-			// Calculate the dot product
-			float dotProduct = FVector::DotProduct(currentEndForward, directionToOtherEnd);
-
-			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if ((distance < maxDistanceToSnapSplineEnds && dotProduct >= 0) || comparedPointsLocation == lastPointLocation)
-			{
-				closestPoint = comparedPointsLocation;
-				closestTangent = spline->GetTangentAtSplinePoint(SplinePointIndexToSnap, ESplineCoordinateSpace::World);
-				connectedActor = proceduralTunnel;
-				if (SplinePointIndexToSnap == 0) 
-				{
-					connecToStart = true;
-				}
-				else
-				{
-					connecToStart = false;
-				}
-				
-			}
-		}
-		// If we are comparing self spline we snap to the start if to something
-		else
-		{
-			FVector selfFirstPointLocation = spline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
-
-			// Calculate the distance between the current tunnel end and the other tunnel end
-			float distance = FVector::Distance(selfFirstPointLocation, lastPointLocation);
-
-			// Get the forward direction of the current tunnel's end
-			FVector currentEndForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
-
-			// Calculate the direction from the current tunnel end to the other tunnel end
-			FVector directionToOtherEnd = (selfFirstPointLocation - lastPointLocation).GetSafeNormal();
-
-			// Calculate the dot product
-			float dotProduct = FVector::DotProduct(currentEndForward, directionToOtherEnd);
-
-			// Check if the distance is within the maximum allowed distance and update the closest point and tangent if necessary
-			if (distance < maxDistanceToSnapSplineEnds && dotProduct > 0)
-			{
-				closestPoint = selfFirstPointLocation;
-				closestTangent = spline->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World);
-				connectedActor = proceduralTunnel;
-				connecToStart = true;
-			}
+			closestPoint = comparedPointLocation;
+			closestTangent = spline->GetTangentAtSplinePoint(splineIndexToSnap, ESplineCoordinateSpace::World);
+			closestTunnel = tunnel;
+			connectToStart = (splineIndexToSnap == 0);
+			shortestDistance = distance;  // Update the shortest distance found
 		}
 	}
 
-	// If a closest point was found, connect the ends of the tunnels and set the corresponding tangent
-	if (closestPoint != FVector(0, 0, 0))
+	// If we've found a tunnel to connect to
+	if (closestTunnel)
 	{
+		// Update connection status and adjust spline points for the snap
 		isEndConnected = true;
-		connectedActor->isEndConnected = true; // Set the closest proceduralTunnel's isEndConnected to true
+		connectedActor = closestTunnel;
+		closestTunnel->isEndConnected = true;
 		SplineComponent->SetLocationAtSplinePoint(lastIndex, closestPoint, ESplineCoordinateSpace::World, true);
-		if (connecToStart) {
-			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent, ESplineCoordinateSpace::World, true);
-		}
-		else {
-			SplineComponent->SetTangentAtSplinePoint(lastIndex, closestTangent * -1, ESplineCoordinateSpace::World, true);
-		}
+
+		// Adjust the tangent to ensure a smooth connection
+		FVector adjustedTangent = connectToStart ? closestTangent : -closestTangent;
+		SplineComponent->SetTangentAtSplinePoint(lastIndex, adjustedTangent, ESplineCoordinateSpace::World, true);
+
+		// Additional tweak to the penultimate point for a smoother transition
 		FVector direction = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
 		FVector secondPointLocation = SplineComponent->GetLocationAtSplinePoint(lastIndex - 1, ESplineCoordinateSpace::World);
-		if (SplineComponent->GetNumberOfSplinePoints() > 2) {
-			SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, FMath::Lerp(closestPoint - direction * 600, secondPointLocation, 0.2f), ESplineCoordinateSpace::World, true);
+		if (SplineComponent->GetNumberOfSplinePoints() > 2)
+		{
+			FVector adjustedLocation = FMath::Lerp(closestPoint - direction * DEFAULT_SNAPPING_DISTANCE, secondPointLocation, LERP_FACTOR);
+			SplineComponent->SetLocationAtSplinePoint(lastIndex - 1, adjustedLocation, ESplineCoordinateSpace::World, true);
 		}
 	}
-	// If no closest point was found, set the end connection status to false
-	else
+	else  // No suitable tunnel was found
 	{
+		connectedActor = nullptr;
 		isEndConnected = false;
 	}
 }
@@ -281,8 +247,7 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	}
 }
 
-// Returns negative value of how many meshes we need to remakes
-int32 AProceduralTunnel::GetMeshIndexToStartRecreation()
+int32 AProceduralTunnel::CalculateRecreationStartIndex()
 {
 	float tunnelWidth = widthScale * 100.0f;
 	float tunnelHeight = heightScale * 100.0f;
@@ -829,15 +794,21 @@ FVector AProceduralTunnel::GetVerticeOnGround()
 	return FVector(stepToSide.X, stepToSide.Y, stepToSide.Z + deform);
 }
 
-// Get vertice for right wall
+// Constants for rotation lerping values
+const float ROTATE_LERP_START = -45.0f;
+const float ROTATE_LERP_END = 0.0f;
+const float ROTATE_LERP_END_FOR_INTERSECTION = 45.0f;
+
+// Predefined values for extra movement based on index
+const TArray<float> EXTRA_MOVEMENTS = { 100.0f, 50.0f, 30.0f, 10.0f, 0.0f };
+
 FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 {
 	bool isEndOrStar = false;
 
-	// Right wall have to start from where floor ends to prevent any cap between floor and wall meshes
+	// If it's the start of the right wall, just use the latest vertex
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints)
 	{
-		// Save the starting vertice when entering first time
 		wallStartVertice = latestVertice;
 		return latestVertice;
 	}
@@ -845,111 +816,87 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 	FVector rVector = rightVector;
 	float extraMovementToEnd = 0.0f;
 
-	// Check if we need to rotate the starting position to align with the intersection.
-	bool isUnderFiveSteps = stepIndexInsideMesh <= 4;
-	bool isStraightTunnelAfterLeftIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Left;
-	bool isLeftTunnelAfterRightLeftIntersection = tunnelType == TunnelType::LeftTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
-	int32 defaultSplinePointCount = 2; // When tunnel is added it has 2 spline points as default
-	bool isFirstMesh = SplineComponent->GetNumberOfSplinePoints() - indexOfCurrentMesh - defaultSplinePointCount == 0; // This should be 2 - 0 - 2 = 0
-	
-	if (tunnelType != TunnelType::StartTunnel &&
-		isUnderFiveSteps && 
-		!isStraightTunnelAfterLeftIntersection &&
-		!isLeftTunnelAfterRightLeftIntersection &&
-		(isFirstMesh || TunnelMeshes.Num() == 0))
+	// Rotate the start position of the vertex if certain conditions are met
+	if (ShouldRotateStartPositionRightWall())
 	{
 		isEndOrStar = true;
-		float rotateAmount = 0.0f;
-		float alpha = stepIndexInsideMesh / 4.0f;
-		rotateAmount = FMath::Lerp(-45.0f, 0.0f, alpha);
-		switch (stepIndexInsideMesh) {
-		case 0:
-			extraMovementToEnd = 100.0f;
-			break;
-		case 1:
-			extraMovementToEnd = 50.0f;
-			break;
-		case 2:
-			extraMovementToEnd = 30.0f;
-			break;
-		case 3:
-			extraMovementToEnd = 10.0f;
-			break;
-		case 4:
-			extraMovementToEnd = 0.0f;
-			break;
-		}
-		FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
-		rVector = rotator.RotateVector(rightVector);
+		int adjustedStepIndex = stepIndexInsideMesh;
+		float rotateAmount = CalculateRotationAmount(ROTATE_LERP_START, ROTATE_LERP_END, adjustedStepIndex);
+		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedStepIndex];
+		rVector = RotateVectorByAmount(rightVector, rotateAmount);
 	}
-	
-	// Check if we need to rotate the end right wall vertices to align with the continuation tunnel of the intersection.
-	if (IsValid(intersection)) {
-		if (indexOfCurrentMesh == 0 &&
-			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
-			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
-			intersection->intersectionType != IntersectionType::Left)
-		{
-			isEndOrStar = true;
-			float rotateAmount = 0.0f;
-			int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
-			float alpha = index / 4.0f;
-			rotateAmount = FMath::Lerp(0.0f, 45.0f, alpha);
 
-			switch (index) {
-			case 0:
-				extraMovementToEnd = 0.0f;
-				break;
-			case 1:
-				extraMovementToEnd = 10.0f;
-				break;
-			case 2:
-				extraMovementToEnd = 30.0f;
-				break;
-			case 3:
-				extraMovementToEnd = 50.0f;
-				break;
-			case 4:
-				extraMovementToEnd = 100.0f;
-				break;
-			}
-			FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
-			rVector = rotator.RotateVector(rightVector);
-		}
+	// Rotate the end position of the vertex for valid intersections
+	if (IsValid(intersection) && ShouldRotateEndPositionRightWall())
+	{
+		isEndOrStar = true;
+		int adjustedIndex = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4;
+		float rotateAmount = CalculateRotationAmount(ROTATE_LERP_END, ROTATE_LERP_END_FOR_INTERSECTION, adjustedIndex);
+		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedIndex];
+		rVector = RotateVectorByAmount(rightVector, rotateAmount);
 	}
-	
 
-	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
+	// Calculate the relative location on the wall
 	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) / (float)(numberOfVerticalPoints);
 
-	float wVerticeSize = verticalPointSize;
+	// Adjust the vertex size based on if it's the first loop and if there's a valid parent intersection
+	float wVerticeSize = isFirstLoopARound && IsValid(parentIntersection) ? parentIntersection->verticalPointSize : verticalPointSize;
 
-	// Adjust the vertice size for the first loop around 
-	if (isFirstLoopARound && IsValid(parentIntersection))
-	{
-		wVerticeSize = parentIntersection->verticalPointSize;
-	}
-
-
-	// Add roundness to the tunnel.
+	// Calculate the roundness of the tunnel using the deform curve
 	float roundnessAmount = deformCurve->GetFloatValue(locationOnWall);
-	FVector tunnelRoundnesss = rVector * (FMath::Lerp((tunnelRoundValue + extraMovementToEnd), 0.0f, roundnessAmount));
+	FVector tunnelRoundness = rVector * (FMath::Lerp(tunnelRoundValue + extraMovementToEnd, 0.0f, roundnessAmount));
 
-	float zLocation = (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) * wVerticeSize;
-	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation);
-	wallVertice += tunnelRoundnesss;
+	// Determine the vertical location on the wall and calculate the final wall vertex
+	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints) * wVerticeSize);
+	wallVertice += tunnelRoundness;
 
-	// Dont add deformation to end or start of tunnel
+	// Apply deformation to the vertex unless it's at the start or end of the tunnel
 	if (!isEndOrStar) {
-		// Apply deformation to the starting location
 		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
 		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
 		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
 	}
 
 	return wallVertice;
 }
+
+// Checks whether the start position of the vertex should be rotated based on several conditions
+bool AProceduralTunnel::ShouldRotateStartPositionRightWall()
+{
+	bool isUnderFiveSteps = stepIndexInsideMesh <= 4;
+	int32 defaultSplinePointCount = 2;
+	bool isFirstMesh = SplineComponent->GetNumberOfSplinePoints() - indexOfCurrentMesh - defaultSplinePointCount == 0;
+
+	return tunnelType != TunnelType::StartTunnel &&
+		isUnderFiveSteps &&
+		tunnelType != TunnelType::StraightTunnel &&
+		tunnelType != TunnelType::LeftTunnel &&
+		(isFirstMesh || TunnelMeshes.Num() == 0);
+}
+
+// Checks whether the end position of the vertex should be rotated based on several conditions
+bool AProceduralTunnel::ShouldRotateEndPositionRightWall()
+{
+	return indexOfCurrentMesh == 0 &&
+		stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
+		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
+		intersection->intersectionType != IntersectionType::Left;
+}
+
+// Calculate the rotation amount based on start and end values and an adjusted index
+float AProceduralTunnel::CalculateRotationAmount(float startValue, float endValue, int adjustedIndex)
+{
+	float alpha = adjustedIndex / 4.0f;
+	return FMath::Lerp(startValue, endValue, alpha);
+}
+
+// Returns a rotated vector based on a given vector and rotation amount
+FVector AProceduralTunnel::RotateVectorByAmount(const FVector& vector, float rotateAmount)
+{
+	FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
+	return rotator.RotateVector(vector);
+}
+
 
 // Get vertice for roof
 FVector AProceduralTunnel::GetVerticeOnRoof()
@@ -982,7 +929,7 @@ FVector AProceduralTunnel::GetVerticeOnRoof()
     return wallVertice;
 }
 
-// Get vertice for left wall
+// Get vertice for the left wall of the tunnel
 FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 {
 	bool isEndOrStar = false;
@@ -990,133 +937,92 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 	FVector rVector = rightVector;
 	float wVerticeSize = verticalPointSize;
 
-	// If we have completed a full loop around the tunnel, return the first vertice.
-	// This is to create seamless wall and ground connection
+	// If we've completed a loop around the tunnel, return the first vertice
 	if (loopAroundTunnelCurrentIndex == loopAroundTunnelLastIndex)
 	{
 		return firstVertice;
 	}
 
-	// Save the starting vertice when entering first time
+	// If this is the start of the wall, save the starting vertice
 	if (loopAroundTunnelCurrentIndex == numberOfHorizontalPoints * 2 + numberOfVerticalPoints)
 	{
 		wallStartVertice = latestVertice;
 	}
-	
 
-	// If this is the first loop around the tunnel and a parent intersection is valid, use the parent's wall vertice size.
+	// Adjust the vertice size if this is the first loop and a valid parent intersection exists
 	if (isFirstLoopARound && IsValid(parentIntersection))
 	{
 		wVerticeSize = parentIntersection->verticalPointSize;
 	}
 
-	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
-	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
-
-	// Rotate start of wall vertices to align with parent of intersection.
-	if (tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= 4 &&
-		!isStraightTunnelAfterRightIntersection &&
-		!isRightTunnelAfterRightLeftIntersection &&
-		((SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0))
+	// Decide if we need to rotate the starting position of the wall based on tunnel conditions
+	if (ShouldRotateStartPositionLeftWall())
 	{
-		if ((tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel)
-		{
-			isEndOrStar = true;
-			wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(numberOfVerticalPoints)*verticalPointSize));
-
-
-			float rotateAmount = 0.0f;
-			float alpha = stepIndexInsideMesh / 4.0f;
-			rotateAmount = FMath::Lerp(45.0f, 0.0f, alpha);
-
-			switch (stepIndexInsideMesh) {
-			case 0:
-				extraMovementToEnd = 100.0f;
-				break;
-			case 1:
-				extraMovementToEnd = 50.0f;
-				break;
-			case 2:
-				extraMovementToEnd = 30.0f;
-				break;
-			case 3:
-				extraMovementToEnd = 10.0f;
-				break;
-			case 4:
-				extraMovementToEnd = 0.0f;
-				break;
-			}
-
-			// Rotate the rVector and update it.
-			FRotator rotator = FRotator(0.0f, rotateAmount, 0.0F);
-			rVector = rotator.RotateVector(rightVector);
-		}
+		isEndOrStar = true;
+		wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(numberOfVerticalPoints)*verticalPointSize));
+		float rotateAmount = CalculateRotationAmount(45.0f, 0.0f, stepIndexInsideMesh);
+		rVector = RotateVectorByAmount(rightVector, rotateAmount);
+		extraMovementToEnd = EXTRA_MOVEMENTS[stepIndexInsideMesh];
 	}
 
-	// Rotate the end right wall vertices to round up with continuation tunnel of intersection, if applicable.
-	if (IsValid(intersection)) {
-		if (indexOfCurrentMesh == 0 &&
-			stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
-			stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
-			intersection->intersectionType != IntersectionType::Right)
-		{
-			isEndOrStar = true;
-
-			float rotateAmount = 0.0f;
-			int index = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // 0-4
-			float alpha = index / 4.0f;
-			rotateAmount = FMath::Lerp(0.0f, -45.0f, alpha);
-
-			switch (index) {
-			case 0:
-				extraMovementToEnd = 0.0f;
-				break;
-			case 1:
-				extraMovementToEnd = 10.0f;
-				break;
-			case 2:
-				extraMovementToEnd = 30.0f;
-				break;
-			case 3:
-				extraMovementToEnd = 50.0f;
-				break;
-			case 4:
-				extraMovementToEnd = 100.0f;
-				break;
-			}
-
-			// Rotate the rVector and update it.
-			FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
-			rVector = rotator.RotateVector(rightVector);
-		}
+	// Decide if we need to rotate the ending position of the wall based on tunnel conditions
+	if (ShouldRotateEndPositionLeftWall())
+	{
+		isEndOrStar = true;
+		int adjustedIndex = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // Adjusted index for array access
+		float rotateAmount = CalculateRotationAmount(0.0f, -45.0f, adjustedIndex);
+		rVector = RotateVectorByAmount(rightVector, rotateAmount);
+		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedIndex];
 	}
 
-	// Get the location on normalized range at what point are on wall ( 0 = start and 1 = end )
+	// Calculate location on wall and apply roundness based on the deform curve
 	float locationOnWall = (float)(loopAroundTunnelCurrentIndex - numberOfHorizontalPoints * 2 - numberOfVerticalPoints + 1) / (float)numberOfVerticalPoints;
-	// Add roundness to the tunnel wall
-
 	float roundnessAmount = deformCurve->GetFloatValue(locationOnWall);
 	if (IsValid(intersection) && stepIndexInsideMesh == stepCountToMakeCurrentMesh)
 	{
-		roundnessAmount = FMath::Clamp((float)(roundnessAmount - 0.1f), 0.0f, 1.0f);
+		roundnessAmount = FMath::Clamp(roundnessAmount - 0.1f, 0.0f, 1.0f);
 	}
-	FVector tunnelRoundnesss = rVector * FMath::Lerp((tunnelRoundValue + extraMovementToEnd) * -1, 0.0f, roundnessAmount); // AMOUNT WE MOVE TO SIDE TO CREATE  THAT ROUND LOOK OF TUNNEL
+	FVector tunnelRoundness = rVector * FMath::Lerp((tunnelRoundValue + extraMovementToEnd) * -1, 0.0f, roundnessAmount);
+
+	// Calculate wall vertice position
 	float zLocation = (loopAroundTunnelCurrentIndex - numberOfHorizontalPoints * 2 - numberOfVerticalPoints + 1) * (wVerticeSize * -1.0f);
+	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation) + tunnelRoundness;
 
-
-	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation);
-	wallVertice += tunnelRoundnesss;
-
-	if (!isEndOrStar) {
-		// Apply deformation to the starting location
+	// If it's not the end or start, apply deformation based on the deform texture
+	if (!isEndOrStar)
+	{
 		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
-		// Pixel value is in range 0-1 and we want to change it to range between -1 - 1
 		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
 		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
 	}
 
 	return wallVertice;
 }
+
+// Check if we need to rotate the starting position of the left wall based on various tunnel conditions
+bool AProceduralTunnel::ShouldRotateStartPositionLeftWall()
+{
+	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
+	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
+
+	bool conditionOne = tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= 4;
+	bool conditionTwo = !isStraightTunnelAfterRightIntersection && !isRightTunnelAfterRightLeftIntersection;
+	bool conditionThree = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
+	bool conditionFour = (tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel;
+
+	return conditionOne && conditionTwo && conditionThree && conditionFour;
+}
+
+// Check if we need to rotate the ending position of the left wall based on various tunnel conditions
+bool AProceduralTunnel::ShouldRotateEndPositionLeftWall()
+{
+	bool conditionOne = IsValid(intersection) && indexOfCurrentMesh == 0;
+	bool conditionTwo = stepIndexInsideMesh <= stepCountToMakeCurrentMesh && stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4;
+	bool conditionThree = intersection->intersectionType != IntersectionType::Right;
+
+	return conditionOne && conditionTwo && conditionThree;
+}
+
 
 // Returns index of current vertice. This index can be used for getting other tunnels correct index in connection situation
 int32 AProceduralTunnel::GetIndexOfVertice() 

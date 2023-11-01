@@ -162,7 +162,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ControlSplinePoints();
 	UFUNCTION(BlueprintCallable)
-	int32 GetMeshIndexToStartRecreation();
+	int32 CalculateRecreationStartIndex();
 	UFUNCTION(BlueprintCallable)
 	void ProceduralGenerationLoop(int32 firstIndex, int32 lastIndex, bool isMeshPartUpdate);
 	UFUNCTION(BlueprintCallable)
@@ -195,8 +195,14 @@ public:
 	// Basic functions to get vertice locations on different surfaces
 	FVector GetVerticeOnGround();
 	FVector GetVerticeOnRightWall(bool isFirstLoopARound);
+	bool ShouldRotateStartPositionRightWall();
+	bool ShouldRotateEndPositionRightWall();
+	float CalculateRotationAmount(float startValue, float endValue, int adjustedIndex);
+	FVector RotateVectorByAmount(const FVector& vector, float rotateAmount);
 	FVector GetVerticeOnRoof();
 	FVector GetVerticeOnLeftWall(bool isFirstLoopARound);
+	bool ShouldRotateStartPositionLeftWall();
+	bool ShouldRotateEndPositionLeftWall();
 
 	void InitializeStartVectorRightVectorAndValueInTexture();
 	void ClearArrays();
