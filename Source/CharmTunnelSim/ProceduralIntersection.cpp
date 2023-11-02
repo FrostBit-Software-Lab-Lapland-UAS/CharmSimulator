@@ -33,7 +33,6 @@ void AProceduralIntersection::SetValues(FVector2D scale, IntersectionType type, 
 	surfaceVariation = variation;
 	intersectionType = type;
 	if (IsValid(parent)) {
-		UE_LOG(LogTemp, Warning, TEXT("Intersections parent is valid"));
 		parentTunnel = parent;
 	}
 	if (!update) {

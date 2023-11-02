@@ -195,14 +195,13 @@ public:
 	// Basic functions to get vertice locations on different surfaces
 	FVector GetVerticeOnGround();
 	FVector GetVerticeOnRightWall(bool isFirstLoopARound);
-	bool ShouldRotateStartPositionRightWall();
-	bool ShouldRotateEndPositionRightWall();
-	float CalculateRotationAmount(float startValue, float endValue, int adjustedIndex);
+	bool ShouldRotateStartPositionRightWall(int32 stepCountToRound);
+	bool ShouldRotateEndPositionRightWall(int32 stepCountToRound);
 	FVector RotateVectorByAmount(const FVector& vector, float rotateAmount);
 	FVector GetVerticeOnRoof();
 	FVector GetVerticeOnLeftWall(bool isFirstLoopARound);
-	bool ShouldRotateStartPositionLeftWall();
-	bool ShouldRotateEndPositionLeftWall();
+	bool ShouldRotateStartPositionLeftWall(int32 stepCountToRound);
+	bool ShouldRotateEndPositionLeftWall(int32 stepCountToRound);
 
 	void InitializeStartVectorRightVectorAndValueInTexture();
 	void ClearArrays();

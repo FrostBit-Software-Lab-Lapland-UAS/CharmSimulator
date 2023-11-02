@@ -210,21 +210,6 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	float maxDistanceBetweenPoints = 750.0f;
 	float pointOffSet = 200.0f;
 
-	// Obtain the player controller for input checking
-	APlayerController* playerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (!playerController) return;  // Safety check
-
-	// Halve the distance if the Left Shift key is pressed
-	if (playerController->WasInputKeyJustPressed(EKeys::LeftShift))
-	{
-		maxDistanceBetweenPoints /= 2;
-
-		// Add a new spline point at the end (same location as the last point)
-		int32 lastIndex = SplineComponent->GetNumberOfSplinePoints() - 1;
-		FVector position = SplineComponent->GetLocationAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
-		SplineComponent->AddSplinePointAtIndex(position, lastIndex, ESplineCoordinateSpace::World, true);
-	}
-
 	// Calculate the distances for last and second last spline points
 	int32 numberOfPoints = SplineComponent->GetNumberOfSplinePoints();
 	int32 lastIndex = numberOfPoints - 1;
@@ -240,8 +225,11 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	{
 		for (int32 i = 1; i <= pointsToFitBetween; i++)
 		{
+			// Previous spline point index
+			int32 splinePointIndex = SplineComponent->GetNumberOfSplinePoints() - 2;
+
 			// Calculate the location for the new spline point
-			float distance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(numberOfPoints - 2) + maxDistanceBetweenPoints;
+			float distance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(splinePointIndex) + maxDistanceBetweenPoints;
 
 			// Adjust the distance for the last new point
 			if (i == pointsToFitBetween)
@@ -250,7 +238,7 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 			}
 
 			FVector location = SplineComponent->GetLocationAtDistanceAlongSpline(distance, ESplineCoordinateSpace::World);
-			SplineComponent->AddSplinePointAtIndex(location, lastIndex + i, ESplineCoordinateSpace::World, true);
+			SplineComponent->AddSplinePointAtIndex(location, splinePointIndex + 1, ESplineCoordinateSpace::World, true);
 		}
 	}
 	// If the distance between the last two points is too small and there are more than three points in total
@@ -280,6 +268,7 @@ int32 AProceduralTunnel::CalculateRecreationStartIndex()
 	float tunnelWidth = widthScale * 100.0f;
 	float tunnelHeight = heightScale * 100.0f;
 	horizontalPointSize = tunnelWidth / (float)(numberOfHorizontalPoints - 1);
+	//UE_LOG(LogTemp, Warning, TEXT("The float value is: %f"), horizontalPointSize);
 	verticalPointSize = tunnelHeight / (float)(numberOfVerticalPoints);
 
 	// Last mesh index is alway spline point count - 2
@@ -823,9 +812,12 @@ FVector AProceduralTunnel::GetVerticeOnGround()
 }
 
 // Constants for rotation lerping values
-const float ROTATE_LERP_START = -45.0f;
+const float ROTATE_LERP_START_NEGATIVE = -45.0f;
+const float ROTATE_LERP_START_POSITIVE = 45.0f;
 const float ROTATE_LERP_END = 0.0f;
-const float ROTATE_LERP_END_FOR_INTERSECTION = 45.0f;
+const float maxStepCountToRound = 20;
+const float minStepCountToRound = 2;
+const float horizontalPointMaxSize = 225;
 
 // Predefined values for extra movement based on index
 const TArray<float> EXTRA_MOVEMENTS = { 100.0f, 50.0f, 30.0f, 10.0f, 0.0f };
@@ -843,24 +835,29 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 
 	FVector rVector = rightVector;
 	float extraMovementToEnd = 0.0f;
+	// Calculate how many steps we need to round in end or in the start of tunnel
+	float alphaValue = FMath::Clamp(horizontalPointSize / horizontalPointMaxSize, 0, 1);
+	int32 numberOfStepsToRound = FMath::RoundToInt32(FMath::Lerp(maxStepCountToRound, minStepCountToRound, alphaValue));
 
 	// Rotate the start position of the vertex if certain conditions are met
-	if (ShouldRotateStartPositionRightWall())
+	if (ShouldRotateStartPositionRightWall(numberOfStepsToRound))
 	{
 		isEndOrStar = true;
-		int adjustedStepIndex = stepIndexInsideMesh;
-		float rotateAmount = CalculateRotationAmount(ROTATE_LERP_START, ROTATE_LERP_END, adjustedStepIndex);
-		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedStepIndex];
+		float alpha = float(stepIndexInsideMesh) / float(numberOfStepsToRound);
+		float rotateAmount = FMath::Lerp(ROTATE_LERP_START_NEGATIVE, ROTATE_LERP_END, alpha);
+		extraMovementToEnd = stopDeformCurve->GetFloatValue(alpha);;
 		rVector = RotateVectorByAmount(rightVector, rotateAmount);
 	}
 
 	// Rotate the end position of the vertex for valid intersections
-	if (IsValid(intersection) && ShouldRotateEndPositionRightWall())
+	if (IsValid(intersection) && ShouldRotateEndPositionRightWall(numberOfStepsToRound))
 	{
 		isEndOrStar = true;
-		int adjustedIndex = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4;
-		float rotateAmount = CalculateRotationAmount(ROTATE_LERP_END, ROTATE_LERP_END_FOR_INTERSECTION, adjustedIndex);
-		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedIndex];
+		float startValue = stepIndexInsideMesh - (stepCountToMakeCurrentMesh - numberOfStepsToRound);
+		float alpha = startValue / float(numberOfStepsToRound);
+		float rotateAmount = FMath::Lerp(ROTATE_LERP_END, ROTATE_LERP_START_POSITIVE, alpha);
+		extraMovementToEnd = stopDeformCurve->GetFloatValue(1 - alpha);//FMath::Lerp(0, 100, alpha);
+
 		rVector = RotateVectorByAmount(rightVector, rotateAmount);
 	}
 
@@ -889,33 +886,24 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 }
 
 // Checks whether the start position of the vertex should be rotated based on several conditions
-bool AProceduralTunnel::ShouldRotateStartPositionRightWall()
+bool AProceduralTunnel::ShouldRotateStartPositionRightWall(int32 stepCountToRound)
 {
-	bool isUnderFiveSteps = stepIndexInsideMesh <= 4;
-	int32 defaultSplinePointCount = 2;
-	bool isFirstMesh = SplineComponent->GetNumberOfSplinePoints() - indexOfCurrentMesh - defaultSplinePointCount == 0;
+	bool isUnderStepCount = stepIndexInsideMesh <= stepCountToRound;
+	bool isFirstMesh = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
 
 	return tunnelType != TunnelType::StartTunnel &&
-		isUnderFiveSteps &&
+		isUnderStepCount &&
 		tunnelType != TunnelType::StraightTunnel &&
-		tunnelType != TunnelType::LeftTunnel &&
-		(isFirstMesh || TunnelMeshes.Num() == 0);
+		isFirstMesh;
 }
 
 // Checks whether the end position of the vertex should be rotated based on several conditions
-bool AProceduralTunnel::ShouldRotateEndPositionRightWall()
+bool AProceduralTunnel::ShouldRotateEndPositionRightWall(int32 stepCountToRound)
 {
 	return indexOfCurrentMesh == 0 &&
 		stepIndexInsideMesh <= stepCountToMakeCurrentMesh &&
-		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4 &&
+		stepIndexInsideMesh >= stepCountToMakeCurrentMesh - stepCountToRound &&
 		intersection->intersectionType != IntersectionType::Left;
-}
-
-// Calculate the rotation amount based on start and end values and an adjusted index
-float AProceduralTunnel::CalculateRotationAmount(float startValue, float endValue, int adjustedIndex)
-{
-	float alpha = adjustedIndex / 4.0f;
-	return FMath::Lerp(startValue, endValue, alpha);
 }
 
 // Returns a rotated vector based on a given vector and rotation amount
@@ -962,7 +950,6 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 	bool isEndOrStar = false;
 	float extraMovementToEnd = 0.0f;
 	FVector rVector = rightVector;
-	float wVerticeSize = verticalPointSize;
 
 	// If we've completed a loop around the tunnel, return the first vertice
 	if (loopAroundTunnelCurrentIndex == loopAroundTunnelLastIndex)
@@ -977,29 +964,34 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 	}
 
 	// Adjust the vertice size if this is the first loop and a valid parent intersection exists
-	if (isFirstLoopARound && IsValid(parentIntersection))
-	{
-		wVerticeSize = parentIntersection->verticalPointSize;
-	}
+	float wVerticeSize = isFirstLoopARound && IsValid(parentIntersection) ? parentIntersection->verticalPointSize : verticalPointSize;
+
+	// Calculate how many steps we need to round in end or in the start of tunnel
+	float alphaValue = FMath::Clamp(horizontalPointSize / horizontalPointMaxSize, 0, 1);
+	int32 numberOfStepsToRound = FMath::RoundToInt32(FMath::Lerp(maxStepCountToRound, minStepCountToRound, alphaValue));
 
 	// Decide if we need to rotate the starting position of the wall based on tunnel conditions
-	if (ShouldRotateStartPositionLeftWall())
+	if (ShouldRotateStartPositionLeftWall(numberOfStepsToRound))
 	{
-		isEndOrStar = true;
 		wallStartVertice = FVector(firstVertice.X, firstVertice.Y, firstVertice.Z + ((float)(numberOfVerticalPoints)*verticalPointSize));
-		float rotateAmount = CalculateRotationAmount(45.0f, 0.0f, stepIndexInsideMesh);
+		isEndOrStar = true;
+
+		float alpha = float(stepIndexInsideMesh) / float(numberOfStepsToRound);
+		float rotateAmount = FMath::Lerp(ROTATE_LERP_START_POSITIVE, ROTATE_LERP_END, alpha);
+		extraMovementToEnd = stopDeformCurve->GetFloatValue(alpha);;
 		rVector = RotateVectorByAmount(rightVector, rotateAmount);
-		extraMovementToEnd = EXTRA_MOVEMENTS[stepIndexInsideMesh];
 	}
 
 	// Decide if we need to rotate the ending position of the wall based on tunnel conditions
-	if (ShouldRotateEndPositionLeftWall())
+	if (ShouldRotateEndPositionLeftWall(numberOfStepsToRound))
 	{
 		isEndOrStar = true;
-		int adjustedIndex = stepIndexInsideMesh - stepCountToMakeCurrentMesh + 4; // Adjusted index for array access
-		float rotateAmount = CalculateRotationAmount(0.0f, -45.0f, adjustedIndex);
+
+		float startValue = stepIndexInsideMesh - (stepCountToMakeCurrentMesh - numberOfStepsToRound);
+		float alpha = startValue / float(numberOfStepsToRound);
+		float rotateAmount = FMath::Lerp(ROTATE_LERP_END, ROTATE_LERP_START_NEGATIVE, alpha);
+		extraMovementToEnd = stopDeformCurve->GetFloatValue(1 - alpha);
 		rVector = RotateVectorByAmount(rightVector, rotateAmount);
-		extraMovementToEnd = EXTRA_MOVEMENTS[adjustedIndex];
 	}
 
 	// Calculate location on wall and apply roundness based on the deform curve
@@ -1027,12 +1019,12 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 }
 
 // Check if we need to rotate the starting position of the left wall based on various tunnel conditions
-bool AProceduralTunnel::ShouldRotateStartPositionLeftWall()
+bool AProceduralTunnel::ShouldRotateStartPositionLeftWall(int32 stepCountToRound)
 {
 	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
 	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
 
-	bool conditionOne = tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= 4;
+	bool conditionOne = tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= stepCountToRound;
 	bool conditionTwo = !isStraightTunnelAfterRightIntersection && !isRightTunnelAfterRightLeftIntersection;
 	bool conditionThree = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
 	bool conditionFour = (tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel;
@@ -1041,10 +1033,10 @@ bool AProceduralTunnel::ShouldRotateStartPositionLeftWall()
 }
 
 // Check if we need to rotate the ending position of the left wall based on various tunnel conditions
-bool AProceduralTunnel::ShouldRotateEndPositionLeftWall()
+bool AProceduralTunnel::ShouldRotateEndPositionLeftWall(int32 stepCountToRound)
 {
 	bool conditionOne = IsValid(intersection) && indexOfCurrentMesh == 0;
-	bool conditionTwo = stepIndexInsideMesh <= stepCountToMakeCurrentMesh && stepIndexInsideMesh >= stepCountToMakeCurrentMesh - 4;
+	bool conditionTwo = stepIndexInsideMesh <= stepCountToMakeCurrentMesh && stepIndexInsideMesh >= stepCountToMakeCurrentMesh - stepCountToRound;
 	bool conditionThree = intersection->intersectionType != IntersectionType::Right;
 
 	return conditionOne && conditionTwo && conditionThree;
