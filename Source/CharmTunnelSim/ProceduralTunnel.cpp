@@ -204,48 +204,76 @@ void AProceduralTunnel::ControlSplinePoints()
 	}
 }
 
-// Adds or removes spline points depending on the distance of dragged spline point and previous spline point
 void AProceduralTunnel::AddOrRemoveSplinePoints()
 {
-	float maxDistanceBetweenPoints = 750; //1000 original WAS 500 NOW
-	float pointOffSet = 200;
+	// Define the base parameters for point spacing and offset
+	float maxDistanceBetweenPoints = 750.0f;
+	float pointOffSet = 200.0f;
+
+	// Obtain the player controller for input checking
 	APlayerController* playerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if(playerController->WasInputKeyJustPressed(EKeys::LeftShift)) // IF LEFT SHIFT IS CLIKKED ADD NEW POINT WHERE WE ARE
-	{ 										
-		maxDistanceBetweenPoints = maxDistanceBetweenPoints / 2;
+	if (!playerController) return;  // Safety check
+
+	// Halve the distance if the Left Shift key is pressed
+	if (playerController->WasInputKeyJustPressed(EKeys::LeftShift))
+	{
+		maxDistanceBetweenPoints /= 2;
+
+		// Add a new spline point at the end (same location as the last point)
 		int32 lastIndex = SplineComponent->GetNumberOfSplinePoints() - 1;
 		FVector position = SplineComponent->GetLocationAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
 		SplineComponent->AddSplinePointAtIndex(position, lastIndex, ESplineCoordinateSpace::World, true);
 	}
+
+	// Calculate the distances for last and second last spline points
 	int32 numberOfPoints = SplineComponent->GetNumberOfSplinePoints();
 	int32 lastIndex = numberOfPoints - 1;
 	float currentDistance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(lastIndex);
 	float previousDistance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(lastIndex - 1);
 	float distanceBetweenPoints = currentDistance - previousDistance;
+
+	// Calculate how many points can fit in the gap
 	int32 pointsToFitBetween = FMath::FloorToInt(distanceBetweenPoints / maxDistanceBetweenPoints);
 
-	if (pointsToFitBetween != 0) 
+	// If there's space for more points between the last two points
+	if (pointsToFitBetween > 0)
 	{
-		int32 splinePointIndex = SplineComponent->GetNumberOfSplinePoints() - 2;
 		for (int32 i = 1; i <= pointsToFitBetween; i++)
 		{
-			float distance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineComponent->GetNumberOfSplinePoints() - 2);
-			distance = distance + maxDistanceBetweenPoints;
-			if(i == pointsToFitBetween) {
-				distance = distance - pointOffSet;
-			} 
+			// Calculate the location for the new spline point
+			float distance = SplineComponent->GetDistanceAlongSplineAtSplinePoint(numberOfPoints - 2) + maxDistanceBetweenPoints;
+
+			// Adjust the distance for the last new point
+			if (i == pointsToFitBetween)
+			{
+				distance -= pointOffSet;
+			}
+
 			FVector location = SplineComponent->GetLocationAtDistanceAlongSpline(distance, ESplineCoordinateSpace::World);
-			SplineComponent->AddSplinePointAtIndex(location, splinePointIndex + i, ESplineCoordinateSpace::World, true);
+			SplineComponent->AddSplinePointAtIndex(location, lastIndex + i, ESplineCoordinateSpace::World, true);
 		}
 	}
+	// If the distance between the last two points is too small and there are more than three points in total
 	else if (distanceBetweenPoints < pointOffSet && numberOfPoints > 3)
 	{
-		SplineComponent->RemoveSplinePoint(numberOfPoints -2);
-		TunnelMeshes.Last()->DestroyComponent();
-		TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
-		meshEnds.RemoveAt(meshEnds.Num() - 1);
+		// Remove the second last spline point and associated tunnel mesh and mesh end
+		SplineComponent->RemoveSplinePoint(numberOfPoints - 2);
+
+		// Safety check before destruction and removal
+		if (TunnelMeshes.Num() > 0)
+		{
+			TunnelMeshes.Last()->DestroyComponent();
+			TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
+		}
+
+		// Safety check before removal
+		if (meshEnds.Num() > 0)
+		{
+			meshEnds.RemoveAt(meshEnds.Num() - 1);
+		}
 	}
 }
+
 
 int32 AProceduralTunnel::CalculateRecreationStartIndex()
 {
@@ -896,7 +924,6 @@ FVector AProceduralTunnel::RotateVectorByAmount(const FVector& vector, float rot
 	FRotator rotator = FRotator(0.0f, rotateAmount, 0.0f);
 	return rotator.RotateVector(vector);
 }
-
 
 // Get vertice for roof
 FVector AProceduralTunnel::GetVerticeOnRoof()
