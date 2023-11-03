@@ -220,8 +220,30 @@ void AProceduralTunnel::AddOrRemoveSplinePoints()
 	// Calculate how many points can fit in the gap
 	int32 pointsToFitBetween = FMath::FloorToInt(distanceBetweenPoints / maxDistanceBetweenPoints);
 
+	FVector SecondPointForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex, ESplineCoordinateSpace::World);
+	FVector FirstPointForward = SplineComponent->GetDirectionAtSplinePoint(lastIndex - 1, ESplineCoordinateSpace::World);
+	float DotProduct = FVector::DotProduct(SecondPointForward, FirstPointForward);
+
+	if (DotProduct < 0.0f)
+	{
+		// Remove the second last spline point and associated tunnel mesh and mesh end
+		SplineComponent->RemoveSplinePoint(numberOfPoints - 2);
+
+		// Safety check before destruction and removal
+		if (TunnelMeshes.Num() > 0)
+		{
+			TunnelMeshes.Last()->DestroyComponent();
+			TunnelMeshes.RemoveAt(TunnelMeshes.Num() - 1);
+		}
+
+		// Safety check before removal
+		if (meshEnds.Num() > 0)
+		{
+			meshEnds.RemoveAt(meshEnds.Num() - 1);
+		}
+	}
 	// If there's space for more points between the last two points
-	if (pointsToFitBetween > 0)
+	else if (pointsToFitBetween > 0)
 	{
 		for (int32 i = 1; i <= pointsToFitBetween; i++)
 		{
@@ -876,11 +898,11 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 	wallVertice += tunnelRoundness;
 
 	// Apply deformation to the vertex unless it's at the start or end of the tunnel
-	if (!isEndOrStar) {
+	//if (!isEndOrStar) {
 		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
 		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
 		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
-	}
+	//}
 
 	return wallVertice;
 }
@@ -888,13 +910,16 @@ FVector AProceduralTunnel::GetVerticeOnRightWall(bool isFirstLoopARound)
 // Checks whether the start position of the vertex should be rotated based on several conditions
 bool AProceduralTunnel::ShouldRotateStartPositionRightWall(int32 stepCountToRound)
 {
-	bool isUnderStepCount = stepIndexInsideMesh <= stepCountToRound;
-	bool isFirstMesh = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
+	bool isStraightTunnelAfterLeftIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Left;
+	bool isLeftTunnelAfterRightLeftIntersection = tunnelType == TunnelType::LeftTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
 
-	return tunnelType != TunnelType::StartTunnel &&
-		isUnderStepCount &&
-		tunnelType != TunnelType::StraightTunnel &&
-		isFirstMesh;
+	bool isUnderStepCount = stepIndexInsideMesh <= stepCountToRound;
+	bool isNotStartTunnel = tunnelType != TunnelType::StartTunnel;
+	bool isParentIntersectionCorrect = !isStraightTunnelAfterLeftIntersection && !isLeftTunnelAfterRightLeftIntersection;
+	bool isFirstMesh = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
+	bool conditionFour = (tunnelType == TunnelType::StraightTunnel && IsValid(rightSideTunnel)) || tunnelType != TunnelType::StraightTunnel;
+
+	return isUnderStepCount && isNotStartTunnel && isParentIntersectionCorrect && isFirstMesh && conditionFour;
 }
 
 // Checks whether the end position of the vertex should be rotated based on several conditions
@@ -1008,12 +1033,12 @@ FVector AProceduralTunnel::GetVerticeOnLeftWall(bool isFirstLoopARound)
 	FVector wallVertice = wallStartVertice + FVector(0.0f, 0.0f, zLocation) + tunnelRoundness;
 
 	// If it's not the end or start, apply deformation based on the deform texture
-	if (!isEndOrStar)
-	{
+	//if (!isEndOrStar)
+	//{
 		float pixelValue = GetPixelValue(forwardStepInDeformTexture, loopAroundTunnelCurrentIndex);
 		float directionOfDeform = FMath::Lerp(-1.0f, 1.0f, pixelValue);
 		wallVertice += FMath::Lerp(0.0f, maxWallDeformation, wallDeformation) * directionOfDeform * rightVector;
-	}
+	//}
 
 	return wallVertice;
 }
@@ -1023,13 +1048,14 @@ bool AProceduralTunnel::ShouldRotateStartPositionLeftWall(int32 stepCountToRound
 {
 	bool isStraightTunnelAfterRightIntersection = tunnelType == TunnelType::StraightTunnel && parentIntersection->intersectionType == IntersectionType::Right;
 	bool isRightTunnelAfterRightLeftIntersection = tunnelType == TunnelType::RightTunnel && parentIntersection->intersectionType == IntersectionType::RightLeft;
-
-	bool conditionOne = tunnelType != TunnelType::StartTunnel && stepIndexInsideMesh <= stepCountToRound;
-	bool conditionTwo = !isStraightTunnelAfterRightIntersection && !isRightTunnelAfterRightLeftIntersection;
-	bool conditionThree = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
+	
+	bool isUnderStepCount = stepIndexInsideMesh <= stepCountToRound;
+	bool isNotStartTunnel = tunnelType != TunnelType::StartTunnel;
+	bool isParentIntersectionCorrect = !isStraightTunnelAfterRightIntersection && !isRightTunnelAfterRightLeftIntersection;
+	bool isFirstMesh = (SplineComponent->GetNumberOfSplinePoints() - 1 - indexOfCurrentMesh == 1) || TunnelMeshes.Num() == 0;
 	bool conditionFour = (tunnelType == TunnelType::StraightTunnel && IsValid(leftSideTunnel)) || tunnelType != TunnelType::StraightTunnel;
 
-	return conditionOne && conditionTwo && conditionThree && conditionFour;
+	return isUnderStepCount && isNotStartTunnel && isParentIntersectionCorrect && isFirstMesh && conditionFour;
 }
 
 // Check if we need to rotate the ending position of the left wall based on various tunnel conditions
